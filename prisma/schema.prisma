@@ -1,0 +1,128 @@
+generator client {
+  provider = "prisma-client-js"
+}
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+model User {
+  id           String   @id @default(uuid()) @db.VarChar(36)
+  name         String   @db.VarChar(80)
+  avatar       String   @default("leaf") @db.VarChar(80)
+  tokenHash    String   @unique @db.VarChar(64)
+  coins        Int      @default(1000)
+  level        Int      @default(1)
+  createdAt    DateTime @default(now())
+  rooms        Room[]
+  seats        RoomPlayer[]
+  matches      MatchPlayer[]
+  messages     ChatMessage[]
+  friends      Friend[] @relation("FriendOwner")
+  friendedBy   Friend[] @relation("FriendTarget")
+  rankings     Ranking[]
+}
+model Game {
+  id          String @id @db.VarChar(32)
+  name        String @db.VarChar(80)
+  minPlayers  Int
+  maxPlayers  Int
+  available   Boolean @default(false)
+  rooms       Room[]
+  matches     Match[]
+  rankings    Ranking[]
+}
+model Room {
+  id              String   @id @db.VarChar(36)
+  code            String   @unique @db.VarChar(6)
+  name            String   @db.VarChar(120)
+  gameId          String   @db.VarChar(32)
+  hostId          String   @db.VarChar(36)
+  maxPlayers      Int
+  allowAI         Boolean  @default(true)
+  allowSpectators Boolean  @default(true)
+  difficulty      String   @default("medium") @db.VarChar(12)
+  status          String   @default("waiting") @db.VarChar(16)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  game            Game     @relation(fields: [gameId], references: [id])
+  host            User     @relation(fields: [hostId], references: [id])
+  players         RoomPlayer[]
+  matches         Match[]
+  messages        ChatMessage[]
+  @@index([status, gameId])
+}
+model RoomPlayer {
+  id         String   @id @default(uuid()) @db.VarChar(36)
+  roomId     String   @db.VarChar(36)
+  userId     String?  @db.VarChar(36)
+  playerId   String   @db.VarChar(36)
+  name       String   @db.VarChar(80)
+  seat       Int
+  isAI       Boolean  @default(false)
+  difficulty String   @default("medium") @db.VarChar(12)
+  joinedAt   DateTime @default(now())
+  room       Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  user       User?    @relation(fields: [userId], references: [id])
+  @@unique([roomId, seat])
+  @@unique([roomId, playerId])
+}
+model Match {
+  id         String   @id @db.VarChar(36)
+  roomId     String   @db.VarChar(36)
+  gameId     String   @db.VarChar(32)
+  winnerId   String   @db.VarChar(36)
+  startedAt  DateTime
+  endedAt    DateTime @default(now())
+  publicResult Json
+  room       Room @relation(fields: [roomId], references: [id])
+  game       Game @relation(fields: [gameId], references: [id])
+  players    MatchPlayer[]
+  @@index([gameId, endedAt])
+}
+model MatchPlayer {
+  id        String @id @default(uuid()) @db.VarChar(36)
+  matchId   String @db.VarChar(36)
+  userId    String? @db.VarChar(36)
+  playerId  String @db.VarChar(36)
+  name      String @db.VarChar(80)
+  isAI      Boolean @default(false)
+  won       Boolean
+  score     Int
+  coinsDelta Int
+  match     Match @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  user      User? @relation(fields: [userId], references: [id])
+  @@unique([matchId, playerId])
+  @@index([userId])
+}
+model ChatMessage {
+  id        String @id @db.VarChar(36)
+  roomId    String @db.VarChar(36)
+  userId    String @db.VarChar(36)
+  name      String @db.VarChar(80)
+  text      String @db.Text
+  createdAt DateTime @default(now())
+  room      Room @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  user      User @relation(fields: [userId], references: [id])
+  @@index([roomId, createdAt])
+}
+model Friend {
+  id       String @id @default(uuid()) @db.VarChar(36)
+  userId   String @db.VarChar(36)
+  friendId String @db.VarChar(36)
+  createdAt DateTime @default(now())
+  user     User @relation("FriendOwner", fields: [userId], references: [id], onDelete: Cascade)
+  friend   User @relation("FriendTarget", fields: [friendId], references: [id], onDelete: Cascade)
+  @@unique([userId, friendId])
+}
+model Ranking {
+  id       String @id @default(uuid()) @db.VarChar(36)
+  userId   String @db.VarChar(36)
+  gameId   String @db.VarChar(32)
+  wins     Int @default(0)
+  played   Int @default(0)
+  score    Int @default(0)
+  user     User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  game     Game @relation(fields: [gameId], references: [id])
+  @@unique([userId, gameId])
+  @@index([gameId, score])
+}

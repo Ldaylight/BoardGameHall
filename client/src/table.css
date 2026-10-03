@@ -1,0 +1,384 @@
+.game-shell .sidebar:not(.mobile-open) {
+  display: none;
+}
+.game-shell .main-content {
+  max-width: 1920px;
+  width: 100%;
+  padding: 24px 30px;
+  min-width: 0;
+}
+.game-shell .page-heading {
+  margin-bottom: 20px;
+}
+.game-shell .table-layout {
+  grid-template-columns: minmax(0, 1fr) 260px;
+}
+.directional-table {
+  height: clamp(580px, 64vh, 760px);
+  min-height: 580px;
+  background: var(--table-gradient);
+  border-color: rgb(var(--accent-rgb) / 0.22);
+  box-shadow:
+    inset 0 0 0 7px var(--table-dark),
+    inset 0 0 0 9px rgb(var(--accent-rgb) / 0.12),
+    0 24px 65px #0002;
+}
+.directional-table .arena-grid {
+  background-image: radial-gradient(rgb(var(--accent-rgb) / 0.2) 1px, transparent 1px);
+}
+.directional-table .arena-ring {
+  inset: 82px 70px;
+  border-color: rgb(var(--accent-rgb) / 0.13);
+}
+.directional-table .arena-brand {
+  font-size: clamp(35px, 5vw, 72px);
+  top: 47%;
+  color: rgb(var(--accent-rgb) / 0.045);
+}
+.arena-brand small {
+  display: block;
+  font-size: 11px;
+  letter-spacing: 12px;
+  text-align: center;
+}
+.table-position {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.table-position .table-player,
+.seat-play-position {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  pointer-events: auto;
+}
+.table-position .table-player {
+  z-index: 5;
+  width: 166px;
+  min-width: 0;
+  max-width: 180px;
+  background: rgb(var(--bg-rgb) / 0.88);
+  padding: 11px 13px;
+  border-color: rgb(var(--accent-rgb) / 0.15);
+  border-radius: 14px;
+}
+.table-position .table-player b {
+  font-size: 12px;
+  max-width: 102px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.table-position .table-player small {
+  font-size: 10px;
+  white-space: nowrap;
+}
+.table-position .table-player .avatar {
+  flex-shrink: 0;
+  height: 35px;
+  width: 35px;
+}
+.table-position .table-player.active {
+  border-color: var(--mint);
+  box-shadow: 0 0 22px rgb(var(--accent-rgb) / 0.16);
+}
+.seat-turn-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--mint);
+  position: absolute;
+  right: 8px;
+  top: 8px;
+  box-shadow: 0 0 9px var(--mint);
+}
+.seat-play-position {
+  z-index: 4;
+  width: 72px;
+  height: 114px;
+}
+.seat-play-position .playing-card {
+  width: 72px;
+  height: 101px;
+  border-radius: 12px;
+  overflow: hidden;
+}
+.seat-play-position .card-oval {
+  height: 86%;
+  width: 60%;
+}
+.seat-play-position .card-oval > span {
+  font-size: 32px;
+}
+.seat-play-position .corner {
+  font-size: 15px;
+}
+.played-card {
+  text-align: center;
+}
+.played-caption {
+  font-size: 9px;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  margin-top: 5px;
+  white-space: nowrap;
+}
+.played-caption i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+.latest-play .playing-card {
+  box-shadow: 0 0 24px rgb(var(--accent-rgb) / 0.35);
+}
+.latest-play .played-caption {
+  color: var(--mint);
+}
+.empty-play-slot {
+  display: grid;
+  place-items: center;
+  height: 101px;
+  border: 1px dashed rgb(var(--accent-rgb) / 0.17);
+  border-radius: 12px;
+  color: rgb(var(--accent-rgb) / 0.35);
+  font-size: 10px;
+}
+.position-bottom .table-player {
+  left: 50%;
+  top: 94%;
+}
+.position-bottom .seat-play-position {
+  left: 50%;
+  top: 80%;
+}
+.position-top .table-player {
+  left: 50%;
+  top: 7%;
+}
+.position-top .seat-play-position {
+  left: 50%;
+  top: 23%;
+}
+.position-left .table-player {
+  left: 11%;
+  top: 50%;
+}
+.position-left .seat-play-position {
+  left: 29%;
+  top: 50%;
+}
+.position-right .table-player {
+  left: 89%;
+  top: 50%;
+}
+.position-right .seat-play-position {
+  left: 71%;
+  top: 50%;
+}
+.position-top-left .table-player {
+  left: 26%;
+  top: 8%;
+}
+.position-top-left .seat-play-position {
+  left: 29%;
+  top: 25%;
+}
+.position-top-right .table-player {
+  left: 74%;
+  top: 8%;
+}
+.position-top-right .seat-play-position {
+  left: 71%;
+  top: 25%;
+}
+.directional-table .table-center {
+  top: 49%;
+  gap: 25px;
+}
+.directional-table .color-indicator {
+  top: 62%;
+  bottom: auto;
+  font-size: 11px;
+  color: var(--text);
+}
+.directional-table .turn-banner {
+  top: 65.5%;
+  bottom: auto;
+  background: rgb(var(--bg-rgb) / 0.72);
+  color: var(--muted);
+  border-color: rgb(var(--accent-rgb) / 0.15);
+}
+.directional-table .turn-banner.my-turn {
+  color: var(--mint);
+  border-color: rgb(var(--accent-rgb) / 0.4);
+}
+.game-shell .game-sidebar .log-panel {
+  max-height: 290px;
+}
+@media (max-width: 1190px) {
+  .game-shell .table-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .game-shell .game-sidebar {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .game-shell .game-sidebar .log-panel {
+    max-height: 280px;
+  }
+}
+@media (max-width: 760px) {
+  .game-shell .main-content {
+    padding: 20px 12px;
+  }
+  .game-shell .page-heading {
+    gap: 10px;
+  }
+  .directional-table {
+    height: 620px;
+    min-height: 620px;
+    border-radius: 20px;
+  }
+  .directional-table .arena-ring {
+    inset: 72px 12px;
+  }
+  .table-position .table-player {
+    width: 102px;
+    padding: 7px;
+    gap: 5px;
+    border-radius: 10px;
+  }
+  .table-position .table-player .avatar {
+    width: 25px;
+    height: 25px;
+    font-size: 10px;
+  }
+  .table-position .table-player .avatar svg {
+    width: 16px;
+  }
+  .table-position .table-player b {
+    font-size: 9px;
+    max-width: 62px;
+  }
+  .table-position .table-player small {
+    font-size: 8px;
+    gap: 2px;
+  }
+  .table-position .thinking {
+    display: none;
+  }
+  .position-left .table-player {
+    left: 17%;
+    top: 41%;
+  }
+  .position-right .table-player {
+    left: 83%;
+    top: 41%;
+  }
+  .position-left .seat-play-position {
+    left: 16%;
+    top: 56%;
+  }
+  .position-right .seat-play-position {
+    left: 84%;
+    top: 56%;
+  }
+  .position-top .table-player {
+    top: 6%;
+  }
+  .position-top .seat-play-position {
+    top: 22%;
+  }
+  .position-bottom .table-player {
+    top: 94%;
+  }
+  .position-bottom .seat-play-position {
+    top: 79%;
+  }
+  .position-top-left .table-player {
+    left: 18%;
+  }
+  .position-top-right .table-player {
+    left: 82%;
+  }
+  .position-top-left .seat-play-position {
+    left: 18%;
+    top: 24%;
+  }
+  .position-top-right .seat-play-position {
+    left: 82%;
+    top: 24%;
+  }
+  .players-6 .position-top .seat-play-position {
+    top: 27%;
+  }
+  .seat-play-position {
+    width: 48px;
+    height: 84px;
+  }
+  .seat-play-position .playing-card {
+    width: 48px;
+    height: 67px;
+    border-radius: 9px;
+  }
+  .seat-play-position .card-oval > span {
+    font-size: 23px;
+  }
+  .seat-play-position .corner {
+    font-size: 11px;
+    top: 5px;
+    left: 5px;
+  }
+  .seat-play-position .corner-bottom {
+    top: auto;
+    left: auto;
+    bottom: 5px;
+    right: 5px;
+  }
+  .empty-play-slot {
+    height: 67px;
+  }
+  .played-caption {
+    font-size: 8px;
+  }
+  .directional-table .table-center {
+    top: 49%;
+    gap: 16px;
+  }
+  .directional-table .table-center .playing-card {
+    width: 68px;
+    height: 95px;
+    overflow: hidden;
+  }
+  .directional-table .table-center .card-oval {
+    height: 90%;
+    width: 65%;
+  }
+  .directional-table .table-center .card-oval > span {
+    font-size: 30px;
+  }
+  .directional-table .table-center .is-back .card-oval > span {
+    font-size: 17px;
+  }
+  .directional-table .deck-stack::before,
+  .directional-table .deck-stack::after {
+    width: 68px;
+    height: 95px;
+  }
+  .directional-table .color-indicator {
+    top: 61%;
+    font-size: 10px;
+    gap: 5px;
+  }
+  .directional-table .turn-banner {
+    top: 67%;
+    padding: 7px 10px;
+    font-size: 10px;
+  }
+  .game-shell .game-sidebar {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

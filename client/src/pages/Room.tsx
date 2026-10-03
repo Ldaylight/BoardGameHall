@@ -1,0 +1,245 @@
+import { useEffect, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Bot, Check, ChevronRight, Crown, Layers3, LogOut, Play, Plus, Users } from 'lucide-react';
+import type { Difficulty } from '../../../shared/types';
+import { useRoom } from '@/lib/useRoom';
+import { useApp } from '@/stores/app';
+import { perform, request, socket } from '@/lib/api';
+import { Button } from '@/components/ui/button';
+import { Avatar } from '@/components/Layout';
+import { InviteButton } from '@/components/RoomDialogs';
+import { Chat } from '@/components/Chat';
+export function Room() {
+  const { room, roomId, connected, leave } = useRoom();
+  const user = useApp((s) => s.session?.user);
+  const navigate = useNavigate();
+  const [difficulty, setDifficulty] = useState<Difficulty>('medium');
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    if (room) setDifficulty(room.options.difficulty);
+  }, [room?.id, room?.options.difficulty]);
+  useEffect(() => {
+    if (room?.status === 'playing') navigate(`/game/${room.id}`, { replace: true });
+  }, [room?.status, room?.id, navigate]);
+  if (!room)
+    return (
+      <div className="loading-panel">
+        <Layers3 size={36} />
+        <p>{connected ? '正在同步房间… 房间不存在时请返回大厅。' : '正在连接，恢复你的座位…'}</p>
+        <Button variant="outline" asChild>
+          <Link to="/lobby">返回大厅</Link>
+        </Button>
+      </div>
+    );
+  const host = room.hostId === user?.id;
+  const me = room.players.find((p) => p.id === user?.id);
+  const humansReady = room.players.filter((p) => !p.isAI).every((p) => p.ready);
+  async function execute(task: () => Promise<unknown>) {
+    setBusy(true);
+    await perform(task);
+    setBusy(false);
+  }
+  return (
+    <>
+      <div className="breadcrumb">
+        <Link to="/lobby">桌游大厅</Link>
+        <ChevronRight size={13} />
+        <span>UNO 房间</span>
+      </div>
+      <div className="page-heading">
+        <div>
+          <span className="eyebrow">GOOD COMPANY, GREAT GAME</span>
+          <h1>{room.name}</h1>
+          <p>{host ? '你是房主，召集伙伴开始一场好牌局。' : '找个舒服的座位，准备好就出发。'}</p>
+        </div>
+        <div className="room-head-actions">
+          <span className="room-code">#{room.code}</span>
+          <InviteButton code={room.code} />
+          <Button variant="ghost" size="sm" onClick={() => void leave()}>
+            <LogOut size={15} />
+            离开
+          </Button>
+        </div>
+      </div>
+      {!connected && <div className="refresh-warning">连接已断开，正在重连。房间与手牌由服务器保留。</div>}
+      <div className="room-grid">
+        <div>
+          <section className="panel">
+            <h2 className="panel-title">
+              <Users size={18} />
+              入座，快乐就位{' '}
+              <span>
+                {room.playerCount}/{room.maxPlayers} 位玩家
+              </span>
+            </h2>
+            <div className="seats-grid">
+              {Array.from({ length: room.maxPlayers }, (_, seat) => {
+                const p = room.players.find((p) => p.seat === seat);
+                return p ? (
+                  <div className="seat-card" key={seat}>
+                    <span className="seat-number">SEAT 0{seat + 1}</span>
+                    {p.id === room.hostId && <Crown className="seat-crown" size={16} />}
+                    <Avatar name={p.name} ai={p.isAI} />
+                    <h3>
+                      {p.name}
+                      {p.id === user?.id ? '（你）' : ''}
+                    </h3>
+                    <span className="seat-status">
+                      {p.ready ? (
+                        <>
+                          <Check size={12} />
+                          已准备
+                        </>
+                      ) : !p.connected ? (
+                        '暂时离线'
+                      ) : (
+                        '等待准备'
+                      )}
+                    </span>
+                    {p.isAI && (
+                      <>
+                        <span className="seat-options">
+                          {p.difficulty === 'easy' ? '简单' : p.difficulty === 'medium' ? '中等' : '困难*'}
+                        </span>
+                        {host && (
+                          <button
+                            className="seat-remove"
+                            disabled={busy}
+                            onClick={() =>
+                              void execute(() =>
+                                request((ack) =>
+                                  socket.emit(
+                                    'room:ai',
+                                    { roomId: room.id, difficulty, removeId: p.id },
+                                    ack,
+                                  ),
+                                ),
+                              )
+                            }
+                          >
+                            移除 AI
+                          </button>
+                        )}
+                      </>
+                    )}
+                  </div>
+                ) : (
+                  <div className="seat-card seat-empty" key={seat}>
+                    <span className="seat-number">SEAT 0{seat + 1}</span>
+                    <Plus size={26} />
+                    <p>虚位以待</p>
+                    {host && room.options.allowAI && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        disabled={busy}
+                        onClick={() =>
+                          void execute(() =>
+                            request((ack) => socket.emit('room:ai', { roomId: room.id, difficulty }, ack)),
+                          )
+                        }
+                      >
+                        <Bot size={13} />
+                        添加 AI
+                      </Button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            <div className="room-control">
+              {host && room.options.allowAI && (
+                <select
+                  aria-label="AI 难度"
+                  value={difficulty}
+                  onChange={(e) => setDifficulty(e.target.value as Difficulty)}
+                >
+                  <option value="easy">AI · 简单</option>
+                  <option value="medium">AI · 中等</option>
+                  <option value="hard">AI · 困难（中等策略）</option>
+                </select>
+              )}
+              {me && !me.isAI && (
+                <Button
+                  variant={me.ready ? 'outline' : 'default'}
+                  disabled={busy || !connected || room.status !== 'waiting'}
+                  onClick={() =>
+                    void execute(() =>
+                      request((ack) => socket.emit('room:ready', { roomId: room.id, ready: !me.ready }, ack)),
+                    )
+                  }
+                >
+                  <Check size={16} />
+                  {me.ready ? '取消准备' : '我准备好了'}
+                </Button>
+              )}
+              {host && (
+                <Button
+                  disabled={
+                    busy || !connected || !humansReady || room.playerCount < 2 || room.status !== 'waiting'
+                  }
+                  onClick={() =>
+                    void execute(() => request((ack) => socket.emit('room:start', { roomId: room.id }, ack)))
+                  }
+                >
+                  <Play size={15} />
+                  开始游戏
+                </Button>
+              )}
+              {room.status === 'finished' && (
+                <Button
+                  disabled={!host || busy}
+                  onClick={() =>
+                    void execute(() =>
+                      request((ack) => socket.emit('room:rematch', { roomId: room.id }, ack)),
+                    )
+                  }
+                >
+                  再来一局
+                </Button>
+              )}
+            </div>
+            <p className="room-hint">
+              {room.status === 'finished'
+                ? '本局已结束，房主可重置房间开始下一局。'
+                : !me
+                  ? '你正在观战。牌局开始后将自动进入游戏桌。'
+                  : room.playerCount < 2
+                    ? '至少需要 2 位玩家。邀请朋友，或添加一个 AI 伙伴。'
+                    : !humansReady
+                      ? '等待所有真人玩家准备。AI 已经迫不及待了。'
+                      : '大家都准备好了，房主可以开始！'}{' '}
+              困难 AI 当前使用中等策略。
+            </p>
+          </section>
+          <section className="panel rules-panel">
+            <h2 className="panel-title">
+              <Layers3 size={18} />
+              UNO · 本大厅规则
+            </h2>
+            <div className="rule-tags">
+              <span>2–6 人</span>
+              <span>每人 7 张</span>
+              <span>45 秒回合</span>
+              <span>免费开局</span>
+            </div>
+            <p>
+              出与弃牌颜色或数字相同的牌，万能牌可指定颜色；+4 仅在没有当前颜色的牌时可出。不叠加罚牌，+2 / +4
+              让下一位摸牌并跳过。无牌可出时摸一张：能出则选择打出或结束回合，不能出则自动跳过。轮到自己且只剩两张时，先点「UNO!」按钮，再打出倒数第二张；漏喊由本大厅自动判罚摸两张。声明本回合有效，摸牌后需重新声明。两人局反转等同跳过。率先清空手牌获胜。超时或离线由
+              AI 临时代打。
+            </p>
+          </section>
+        </div>
+        <aside className="room-side">
+          <Chat room={room} />
+          <div className="room-note">
+            <h3>✦ 好牌局，值得分享</h3>
+            <p>
+              点击「邀请好友」复制房间链接。朋友用另一个浏览器或设备打开即可加入。刷新页面会自动恢复座位。
+            </p>
+          </div>
+        </aside>
+      </div>
+    </>
+  );
+}
