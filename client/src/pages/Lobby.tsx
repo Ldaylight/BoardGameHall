@@ -324,14 +324,16 @@ export function Lobby() {
                     人机
                   </span>
                 </div>
-                <button
+                <Button
+                  variant="outline"
+                  size="sm"
                   className={`tile-play ${g.available ? '' : 'disabled'}`}
                   disabled={!g.available}
                   onClick={() => start(g.id)}
                 >
                   {g.available ? '开始游戏' : '敬请期待'}
                   {g.available && <ArrowUpRight size={16} />}
-                </button>
+                </Button>
               </div>
             </div>
           </motion.article>

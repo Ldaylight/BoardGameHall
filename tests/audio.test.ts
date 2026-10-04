@@ -3,6 +3,7 @@ import { GameAudioTracker, eventCues } from '../client/src/lib/game-audio';
 import { defaultAudio, normalizeAudio } from '../client/src/lib/audio-settings';
 import { uno } from '../shared/games/uno';
 import type { RoomView } from '../shared/types';
+import { xiangqiTimelines } from '../client/src/lib/xiangqi-timeline';
 
 function room(): RoomView {
   const state = uno.createState(['a', 'b']);
@@ -49,8 +50,9 @@ describe('audio preferences and public events', () => {
       ]);
       expect(eventCues({ type: 'xiangqi-move', playerId: 'a', piece, capture: true, check: true })).toEqual([
         { effect: `x-${piece}-move` },
-        { effect: `x-${piece}-capture`, delay: 0.38 },
-        { effect: 'x-check', delay: 0.6 },
+        { effect: `x-${piece}-capture` },
+        { effect: `x-${piece}-impact`, delay: xiangqiTimelines[piece].impact },
+        { effect: 'x-check', delay: xiangqiTimelines[piece].impact + 0.12 },
       ]);
     }
   });

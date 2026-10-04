@@ -138,6 +138,8 @@ test('two humans play gomoku, consent to undo, chat, reconnect, win, rematch and
     await expect(a.locator('.gomoku-winning-line')).toBeVisible();
     await expect(b.locator('.gomoku-status')).toContainText('获胜');
     await expect.poll(async () => (await sync()).resultSaved).toBe(true);
+    await expect(a.getByRole('dialog')).toContainText('恭喜你，拿下这一局！');
+    await expect(a.getByRole('dialog').getByRole('link', { name: '返回大厅' })).toBeVisible();
     await a.screenshot({ path: '.artifacts/gomoku-win.png' });
     await a.getByRole('button', { name: '再来一局' }).click();
     await expect(a).toHaveURL(/\/room\//);
@@ -149,6 +151,11 @@ test('two humans play gomoku, consent to undo, chat, reconnect, win, rematch and
     await a.getByRole('button', { name: '认输', exact: true }).click();
     await a.getByRole('button', { name: '确认认输', exact: true }).click();
     await expect(b.locator('.gomoku-status')).toContainText('获胜');
+    await expect(a.getByRole('dialog').getByRole('button', { name: '查看棋盘' })).toBeVisible();
+    await a.getByRole('dialog').getByRole('button', { name: '查看棋盘' }).click();
+    await expect(a.getByRole('dialog')).toHaveCount(0);
+    await a.waitForTimeout(300);
+    await expect(a.getByRole('dialog')).toHaveCount(0);
     expect(errors).toEqual([]);
   } finally {
     sockets.forEach((s) => s.disconnect());

@@ -478,6 +478,20 @@
   pointer-events: none;
   filter: drop-shadow(0 0 8px currentColor);
 }
+.xiangqi-fx-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 45;
+  pointer-events: none;
+  overflow: hidden;
+}
+.xiangqi-fx-layer .xiangqi-fx {
+  z-index: 0;
+  filter: drop-shadow(0 0 4px currentColor);
+}
+.xiangqi-fx-layer svg {
+  overflow: hidden;
+}
 .fx-cannon[data-capture='true'] {
   animation: cannon-shake 0.25s 0.38s linear;
 }

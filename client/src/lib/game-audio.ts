@@ -1,5 +1,6 @@
 import type { RoomView, GameLog } from '../../../shared/types';
 import type { SoundEffect } from './audio-engine';
+import { xiangqiTimelines } from './xiangqi-timeline';
 
 export interface AudioCue {
   effect: SoundEffect;
@@ -12,8 +13,23 @@ export function eventCues(event: GameLog['event'], me?: string): AudioCue[] {
       if (!event.piece) return [];
       return [
         { effect: `x-${event.piece}-move` },
-        ...(event.capture ? [{ effect: `x-${event.piece}-capture` as SoundEffect, delay: 0.38 }] : []),
-        ...(event.check ? [{ effect: 'x-check' as const, delay: 0.6 }] : []),
+        ...(event.capture
+          ? [
+              { effect: `x-${event.piece}-capture` as SoundEffect },
+              {
+                effect: `x-${event.piece}-impact` as SoundEffect,
+                delay: xiangqiTimelines[event.piece].impact,
+              },
+            ]
+          : []),
+        ...(event.check
+          ? [
+              {
+                effect: 'x-check' as const,
+                delay: event.capture ? xiangqiTimelines[event.piece].impact + 0.12 : 0.5,
+              },
+            ]
+          : []),
       ];
     case 'place':
       return [{ effect: 'stone' }];

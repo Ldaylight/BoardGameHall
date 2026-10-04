@@ -25,9 +25,11 @@ import { Avatar } from '@/components/Layout';
 import { Chat } from '@/components/Chat';
 import { AudioButton } from '@/components/AudioController';
 import { XiangqiBoard } from '@/components/XiangqiBoard';
+import { MatchResultDialog } from '@/components/MatchResultDialog';
 import { GameAudioTracker } from '@/lib/game-audio';
 import { audioEngine } from '@/lib/audio-engine';
 import { markSolved } from '@/lib/xiangqi-progress';
+import { useXiangqiPresentation } from '@/lib/useXiangqiPresentation';
 import '../xiangqi.css';
 const reasonLabels = {
   checkmate: '将死',
@@ -58,6 +60,7 @@ export function XiangqiTable({
     [confirmResign, setConfirmResign] = useState(false),
     [hint, setHint] = useState(false);
   const tracker = useRef(new GameAudioTracker());
+  const presentation = useXiangqiPresentation(room, connected, me);
   useEffect(() => {
     if (room.status === 'waiting') navigate(`/room/${room.id}`, { replace: true });
   }, [room.status, room.id, navigate]);
@@ -65,10 +68,6 @@ export function XiangqiTable({
     const t = setInterval(() => setNow(Date.now()), 250);
     return () => clearInterval(t);
   }, []);
-  useEffect(() => {
-    for (const cue of tracker.current.update(room, connected && !document.hidden, me))
-      audioEngine.effect(cue.effect, cue.delay);
-  }, [room, connected, me]);
   useEffect(() => {
     for (const cue of tracker.current.countdown(room, now, connected && !document.hidden))
       audioEngine.effect(cue.effect, cue.delay);
@@ -249,12 +248,13 @@ export function XiangqiTable({
             </div>
           </aside>
           <XiangqiBoard
-            game={game}
+            game={presentation.view ?? game}
             me={me}
-            canAct={myTurn && connected && !busy}
+            canAct={myTurn && connected && !busy && !presentation.animating}
             connected={connected}
             matchId={room.matchId}
             onMove={(a) => void action(a)}
+            move={presentation.active}
           />
           <aside className="xiangqi-side-info recent-moves">
             <span className="eyebrow">ON THE BOARD</span>
@@ -332,6 +332,15 @@ export function XiangqiTable({
           </p>
         )}
       </main>
+      <MatchResultDialog
+        room={room}
+        connected={connected}
+        ready={presentation.readyForResult}
+        onOpen={() => {
+          setPanel(null);
+          setConfirmResign(false);
+        }}
+      />
       <Dialog
         open={!!panel}
         onOpenChange={(open) => {

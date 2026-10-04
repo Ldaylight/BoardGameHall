@@ -22,6 +22,7 @@ import { Avatar } from '@/components/Layout';
 import { Chat } from '@/components/Chat';
 import { AudioButton } from '@/components/AudioController';
 import { GomokuBoard } from '@/components/GomokuBoard';
+import { MatchResultDialog } from '@/components/MatchResultDialog';
 import { GameAudioTracker } from '@/lib/game-audio';
 import { audioEngine } from '@/lib/audio-engine';
 import '../gomoku.css';
@@ -319,6 +320,14 @@ export function GomokuTable({
           </div>
         )}
       </main>
+      <MatchResultDialog
+        room={room}
+        connected={connected}
+        onOpen={() => {
+          setPanel(null);
+          setConfirmResign(false);
+        }}
+      />
       <Dialog
         open={!!panel}
         onOpenChange={(open) => {

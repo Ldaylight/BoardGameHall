@@ -86,6 +86,13 @@ export function UnoTable({
   }, [room?.status, room?.id, navigate]);
   const game = room?.game;
   useEffect(() => {
+    if (game?.winnerId) {
+      setPanel(null);
+      setWild(null);
+      setDragCard(null);
+    }
+  }, [game?.winnerId]);
+  useEffect(() => {
     if (selected && !game?.hand.some((c) => c.id === selected)) setSelected(null);
   }, [game?.hand, selected]);
   if (!room || !game)
@@ -434,7 +441,7 @@ export function UnoTable({
           if (!v) setDismissedWinner(room.matchId);
         }}
       >
-        <DialogContent>
+        <DialogContent className="match-result-dialog">
           <span className="winner-icon">🏆</span>
           <DialogTitle className="modal-title text-center">
             {winner?.id === me ? '这局，你是主角！' : `${winner?.name} 拿下这一局`}
@@ -447,7 +454,7 @@ export function UnoTable({
           <div className="winner-buttons">
             {room.hostId === me && (
               <Button
-                disabled={!room.resultSaved}
+                disabled={!room.resultSaved || !connected}
                 onClick={() =>
                   void perform(() => request((ack) => socket.emit('room:rematch', { roomId: room.id }, ack)))
                 }
@@ -458,6 +465,9 @@ export function UnoTable({
             )}
             <Button variant="outline" onClick={() => setDismissedWinner(room.matchId)}>
               查看牌桌
+            </Button>
+            <Button variant="outline" asChild>
+              <Link to="/lobby">返回大厅</Link>
             </Button>
           </div>
         </DialogContent>

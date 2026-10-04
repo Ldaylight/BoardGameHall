@@ -156,6 +156,8 @@ test('classic puzzles launch with hard AI, forced replies, solve, remember progr
   );
   await move(page, 6, 2, 6, 1);
   await expect(page.locator('.xiangqi-status')).toContainText('残局已解开');
+  await expect(page.getByRole('dialog')).toContainText('残局已解开！');
+  await expect(page.getByRole('dialog').getByRole('button', { name: '重试残局' })).toBeVisible();
   await page.screenshot({ path: '.artifacts/xiangqi-puzzle-win.png' });
   await page.getByRole('link', { name: '更多残局' }).click();
   await expect(page.getByText('已解开 1 / 5 个残局')).toBeVisible();

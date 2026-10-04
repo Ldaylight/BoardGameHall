@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { xiangqi } from '../../../shared/games/xiangqi';
 import {
@@ -10,7 +10,7 @@ import {
 } from '../../../shared/games/xiangqi/types';
 import { coordinate } from '../../../shared/games/xiangqi/endgames';
 import { useApp } from '@/stores/app';
-import { XiangqiEffects } from './XiangqiEffects';
+import { XiangqiEffects, type BoardBounds } from './XiangqiEffects';
 const equal = (a: Point | undefined | null, b: Point) => a?.x === b.x && a.y === b.y;
 export function XiangqiBoard({
   game,
@@ -19,6 +19,7 @@ export function XiangqiBoard({
   connected,
   matchId,
   onMove,
+  move,
 }: {
   game: XiangqiView;
   me?: string;
@@ -26,10 +27,27 @@ export function XiangqiBoard({
   connected: boolean;
   matchId: string | null;
   onMove: (a: MoveAction) => void;
+  move: XiangqiMove | null;
 }) {
-  const [selected, setSelected] = useState<Point | null>(null),
-    [effect, setEffect] = useState<XiangqiMove | null>(null);
-  const baseline = useRef<{ match: string | null; turn: number; connected: boolean } | null>(null);
+  const [selected, setSelected] = useState<Point | null>(null);
+  const boardRef = useRef<HTMLDivElement>(null);
+  const [bounds, setBounds] = useState<BoardBounds | null>(null);
+  useLayoutEffect(() => {
+    const node = boardRef.current;
+    if (!node) return;
+    const measure = () => {
+      const r = node.getBoundingClientRect();
+      setBounds({ left: r.left, top: r.top, width: r.width, height: r.height });
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(node);
+    window.addEventListener('resize', measure);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('resize', measure);
+    };
+  }, []);
   const enabled = useApp((s) => s.motionEnabled),
     prefersReduced = useReducedMotion();
   const reduced = !enabled || !!prefersReduced;
@@ -41,28 +59,6 @@ export function XiangqiBoard({
   );
   const targets = legal.filter((a) => equal(selected, a.from));
   useEffect(() => setSelected(null), [game.turnNumber, game.endReason, matchId]);
-  useEffect(() => {
-    const previous = baseline.current;
-    const live = connected && !document.hidden;
-    baseline.current = { match: matchId, turn: game.turnNumber, connected: live };
-    if (
-      !previous ||
-      previous.match !== matchId ||
-      !previous.connected ||
-      !live ||
-      game.turnNumber !== previous.turn + 1
-    ) {
-      if (!live || previous?.match !== matchId) setEffect(null);
-      return;
-    }
-    const last = game.moves.at(-1);
-    if (last) setEffect(last);
-  }, [game.turnNumber, game.moves, connected, matchId]);
-  useEffect(() => {
-    if (!effect) return;
-    const t = setTimeout(() => setEffect(null), 1400);
-    return () => clearTimeout(t);
-  }, [effect]);
   const last = game.moves.at(-1);
   const ownSide = game.players[0] === me ? 'red' : game.players[1] === me ? 'black' : null;
   const display = (p: Point) => ({ x: flip ? 8 - p.x : p.x, y: flip ? 9 - p.y : p.y });
@@ -79,6 +75,7 @@ export function XiangqiBoard({
   }
   return (
     <div
+      ref={boardRef}
       className={`xiangqi-board ${game.checkedSide ? 'is-check' : ''}`}
       data-flipped={flip}
       aria-label="中国象棋棋盘"
@@ -151,6 +148,9 @@ export function XiangqiBoard({
             className="xiangqi-piece-position"
             key={p.id}
             initial={false}
+            style={{
+              visibility: move?.captured && move.piece.id === p.id && !reduced ? 'hidden' : 'visible',
+            }}
             animate={{ left: `${((d.x + 0.5) / 9) * 100}%`, top: `${((d.y + 0.5) / 10) * 100}%` }}
             transition={{ duration: reduced ? 0 : 0.35, ease: [0.22, 1, 0.36, 1] }}
           >
@@ -162,7 +162,9 @@ export function XiangqiBoard({
           </motion.div>
         );
       })}
-      {effect && <XiangqiEffects key={effect.number} move={effect} flip={flip} reduced={reduced} />}
+      {move && bounds && connected && (
+        <XiangqiEffects key={move.number} move={move} flip={flip} reduced={reduced} bounds={bounds} />
+      )}
       <div className="xiangqi-file-labels" aria-hidden="true">
         {Array.from({ length: 9 }, (_, x) => (
           <span key={x}>{String.fromCharCode(65 + (flip ? 8 - x : x))}</span>

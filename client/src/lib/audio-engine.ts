@@ -1,10 +1,11 @@
 import { useAudio } from '@/stores/audio';
+import { playXiangqiSound } from './xiangqi-sounds';
 import type { PieceKind } from '../../../shared/games/xiangqi/types';
 import { getLocalTrack } from './audio-library';
 import { musicTracks, type AudioScene } from './audio-settings';
 
 export type SoundEffect =
-  | `x-${PieceKind}-${'move' | 'capture'}`
+  | `x-${PieceKind}-${'move' | 'capture' | 'impact'}`
   | 'x-check'
   | 'click'
   | 'hover'
@@ -221,64 +222,15 @@ class AudioEngine {
     source.stop(time + duration);
   }
   private xiangqiSound(effect: SoundEffect, delay: number) {
-    if (effect === 'x-check') {
-      [69, 73, 76].forEach((n, i) => this.tone(n, delay + i * 0.1, 0.3, 0.1, 'triangle'));
-      return;
-    }
-    const kind = effect.split('-')[1] as PieceKind,
-      capture = effect.endsWith('capture');
-    switch (kind) {
-      case 'cannon':
-        if (capture) {
-          this.impact(delay, 0.8, 1700, 0.65);
-          this.tone(40, delay, 0.8, 0.3, 'sine', false, 19);
-          [0.08, 0.15, 0.24].forEach((d) => this.impact(delay + d, 0.2, 4500, 0.12));
-        } else {
-          this.tone(59, delay, 0.35, 0.14, 'sawtooth', false, 32);
-          this.swish(delay, 0.3);
-        }
-        break;
-      case 'chariot':
-        this.swish(delay, capture ? 0.35 : 0.16);
-        this.tone(capture ? 64 : 72, delay, capture ? 0.35 : 0.13, 0.13, 'triangle', false, 42);
-        if (capture) {
-          this.impact(delay, 0.35, 3800, 0.35);
-          this.tone(45, delay, 0.25, 0.12);
-        }
-        break;
-      case 'horse':
-        [0, 0.11, 0.22].forEach((d, i) => {
-          this.impact(delay + d, 0.08, 900 + i * 200, capture ? 0.25 : 0.12);
-          this.tone(43 + i * 3, delay + d, 0.1, 0.08, 'triangle');
-        });
-        if (capture) this.tone(36, delay + 0.23, 0.45, 0.19, 'sine', false, 24);
-        break;
-      case 'elephant':
-        this.tone(capture ? 31 : 40, delay, capture ? 0.6 : 0.25, 0.2, 'sine', false, 22);
-        this.impact(delay, capture ? 0.55 : 0.15, 500, capture ? 0.45 : 0.15);
-        break;
-      case 'advisor':
-        [79, 86, 91].forEach((n, i) => this.tone(n, delay + i * 0.06, capture ? 0.3 : 0.16, 0.07, 'sine'));
-        if (capture) this.swish(delay + 0.07, 0.22);
-        break;
-      case 'soldier':
-        this.tone(67, delay, 0.12, 0.12, 'triangle', false, 48);
-        this.swish(delay, 0.1);
-        if (capture) {
-          this.impact(delay, 0.25, 2300, 0.3);
-          this.tone(48, delay, 0.2, 0.12);
-        }
-        break;
-      case 'general':
-        [48, 55, 60, 67].forEach((n, i) =>
-          this.tone(n, delay + i * 0.05, capture ? 0.7 : 0.3, 0.075, 'triangle'),
-        );
-        if (capture) {
-          this.impact(delay, 0.6, 1200, 0.3);
-          this.tone(31, delay, 0.6, 0.18);
-        }
-        break;
-    }
+    if (!this.context || !this.effectsBus || this.sources.size > 42) return;
+    playXiangqiSound(effect, delay, {
+      context: this.context,
+      bus: this.effectsBus,
+      register: (source, nodes) => this.register(source, nodes, false),
+      tone: (...args) => this.tone(...args),
+      impact: (...args) => this.impact(...args),
+      swish: (...args) => this.swish(...args),
+    });
   }
   effect(effect: SoundEffect, delay = 0) {
     const p = useAudio.getState().preferences;
