@@ -5,6 +5,7 @@ import { io, type Socket } from 'socket.io-client';
 import { PrismaClient } from '@prisma/client';
 import type { ClientEvents, Result, RoomView, ServerEvents, Session, ProfileData } from '../shared/types.js';
 import { uno } from '../shared/games/uno/index.js';
+import { unoView } from '../shared/games/views.js';
 const port = 3099;
 const base = `http://localhost:${port}`;
 const server = spawn(process.execPath, ['--import', 'tsx', 'server/src/index.ts'], {
@@ -98,17 +99,17 @@ try {
   await request((ack) => sb.emit('room:ready', { roomId: r.id, ready: true }, ack));
   await request((ack) => sa.emit('room:start', { roomId: r.id }, ack));
   let view = await request<RoomView>((ack) => sa.emit('room:sync', { roomId: r.id }, ack));
-  const before = view.game!.hand;
+  const before = unoView(view).hand;
   const publicView = await request<RoomView>((ack) =>
     ss.emit('room:join', { code: r.code, spectate: true }, ack),
   );
-  assert.deepEqual(publicView.game!.hand, []);
+  assert.deepEqual(unoView(publicView).hand, []);
   assert.equal('deck' in publicView.game!, false);
   assert.equal('hands' in publicView.game!, false);
   sa.disconnect();
   sa = await connect(a);
   const restored = await request<RoomView>((ack) => sa.emit('room:sync', { roomId: r.id }, ack));
-  assert.deepEqual(restored.game!.hand, before);
+  assert.deepEqual(unoView(restored).hand, before);
   let steps = 0;
   while (view.status !== 'finished' && steps++ < 4000) {
     view = await request<RoomView>((ack) => sa.emit('room:sync', { roomId: r.id }, ack));
@@ -120,7 +121,7 @@ try {
         ? view
         : await request<RoomView>((ack) => sb.emit('room:sync', { roomId: r.id }, ack));
     assert.equal(await db.match.count({ where: { roomId: r.id } }), 0);
-    const action = uno.aiMove(privateView.game!, current, 'medium');
+    const action = uno.aiMove(unoView(privateView), current, 'medium');
     await request((ack) =>
       active.emit('game:action', { roomId: r.id, revision: privateView.revision, action }, ack),
     );
@@ -144,6 +145,108 @@ try {
   assert.equal(
     (await request<RoomView>((ack) => sa.emit('room:sync', { roomId: r.id }, ack))).status,
     'waiting',
+  );
+  await request((ack) => sa.emit('room:leave', { roomId: r.id }, ack));
+  await request((ack) => sb.emit('room:leave', { roomId: r.id }, ack));
+  const gr = await request<RoomView>((ack) =>
+    sa.emit(
+      'room:create',
+      {
+        gameId: 'gomoku',
+        name: 'MySQL 五子棋验收',
+        maxPlayers: 2,
+        allowAI: true,
+        allowSpectators: true,
+        difficulty: 'hard',
+        gomoku: { allowUndo: true },
+      },
+      ack,
+    ),
+  );
+  roomIds.push(gr.id);
+  await request((ack) => sb.emit('room:join', { code: gr.code }, ack));
+  const beginGomoku = async () => {
+    await request((ack) => sa.emit('room:ready', { roomId: gr.id, ready: true }, ack));
+    await request((ack) => sb.emit('room:ready', { roomId: gr.id, ready: true }, ack));
+    await request((ack) => sa.emit('room:start', { roomId: gr.id }, ack));
+  };
+  const syncGomoku = () => request<RoomView>((ack) => sa.emit('room:sync', { roomId: gr.id }, ack));
+  const gomokuAction = async (
+    socket: Socket<ServerEvents, ClientEvents>,
+    action: import('../shared/games/gomoku/types.js').GomokuAction,
+  ) => {
+    const view = await syncGomoku();
+    await request((ack) =>
+      socket.emit('game:action', { roomId: gr.id, revision: view.revision, action }, ack),
+    );
+  };
+  await beginGomoku();
+  await request((ack) => sa.emit('room:chat', { roomId: gr.id, text: '五子棋持久化验收 ♟' }, ack));
+  for (let i = 0; i < 5; i++) {
+    await gomokuAction(sa, { type: 'place', x: i + 4, y: 7 });
+    if (i < 4) await gomokuAction(sb, { type: 'place', x: i + 1, y: 3 });
+  }
+  const gWon = await syncGomoku();
+  assert.equal(gWon.status, 'finished');
+  assert.equal(gWon.resultSaved, true);
+  const record = await db.match.findUniqueOrThrow({
+    where: { id: gWon.matchId! },
+    include: { players: true },
+  });
+  assert.equal(record.gameId, 'gomoku');
+  assert.equal(record.winnerId, a.user.id);
+  assert.equal(record.players.length, 2);
+  assert.equal((record.publicResult as { moves: unknown[] }).moves.length, 9);
+  assert.equal(
+    (
+      await db.ranking.findUniqueOrThrow({
+        where: { userId_gameId: { userId: a.user.id, gameId: 'gomoku' } },
+      })
+    ).wins,
+    1,
+  );
+  await request((ack) => sa.emit('room:rematch', { roomId: gr.id }, ack));
+  await beginGomoku();
+  // This two-row alternating pattern contains no five in any direction, including diagonals.
+  const cells = [[], []] as { x: number; y: number }[][];
+  for (let y = 0; y < 15; y++) for (let x = 0; x < 15; x++) cells[(x + Math.floor(y / 2)) % 2].push({ x, y });
+  for (let i = 0; i < 225; i++) {
+    const color = i % 2,
+      point = cells[color].shift()!;
+    await gomokuAction(color === 0 ? sa : sb, { type: 'place', ...point });
+    if (i === 110) assert.equal(await db.match.count({ where: { roomId: gr.id } }), 1);
+  }
+  const gDraw = await syncGomoku();
+  assert.equal(gDraw.status, 'finished');
+  assert.equal(gDraw.resultSaved, true);
+  const drawRecord = await db.match.findUniqueOrThrow({
+    where: { id: gDraw.matchId! },
+    include: { players: true },
+  });
+  assert.equal(drawRecord.winnerId, null);
+  assert.equal(
+    drawRecord.players.every((p) => !p.won && p.coinsDelta === 10),
+    true,
+  );
+  assert.equal((drawRecord.publicResult as { draw: boolean; moves: unknown[] }).draw, true);
+  assert.equal((drawRecord.publicResult as { moves: unknown[] }).moves.length, 225);
+  await syncGomoku();
+  await syncGomoku();
+  assert.equal(await db.match.count({ where: { roomId: gr.id } }), 2);
+  assert.equal(
+    (
+      await db.ranking.findUniqueOrThrow({
+        where: { userId_gameId: { userId: a.user.id, gameId: 'gomoku' } },
+      })
+    ).played,
+    2,
+  );
+  const gProfile = await api<ProfileData>('/profile', 'GET', undefined, a.token);
+  assert.equal(gProfile.matches.filter((m) => m.gameName === '五子棋').length, 2);
+  assert.equal(gProfile.rankings.find((ranking) => ranking.user.id === a.user.id)!.played, 3);
+  await request((ack) => sa.emit('room:rematch', { roomId: gr.id }, ack));
+  console.log(
+    'PASS: Gomoku MySQL win + 225-move draw, nullable winner, complete public replay, per-game ranking, combined profile, exactly-once rewards, rematch.',
   );
   console.log(
     `PASS: MySQL lifecycle, transactions, Unicode chat, friendship, 2-human complete match (${steps} actions), private spectator view, reconnect, exactly-once rewards and rematch.`,

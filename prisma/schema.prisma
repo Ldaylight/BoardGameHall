@@ -70,7 +70,7 @@ model Match {
   id         String   @id @db.VarChar(36)
   roomId     String   @db.VarChar(36)
   gameId     String   @db.VarChar(32)
-  winnerId   String   @db.VarChar(36)
+  winnerId   String?  @db.VarChar(36)
   startedAt  DateTime
   endedAt    DateTime @default(now())
   publicResult Json

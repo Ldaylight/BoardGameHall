@@ -109,7 +109,13 @@ export async function saveChat(message: ChatMessage, roomId: string) {
     await prisma.chatMessage.create({ data: { ...message, roomId, createdAt: new Date(message.createdAt) } });
 }
 export async function finishMatch(room: StoredRoom) {
-  if (!room.game?.winnerId || !room.matchId || !room.startedAt) return;
+  if (
+    !room.game ||
+    (!room.game.winnerId && !('draw' in room.game && room.game.draw)) ||
+    !room.matchId ||
+    !room.startedAt
+  )
+    return;
   const winnerId = room.game.winnerId;
   const matchId = room.matchId;
   if (!prisma) {
@@ -135,7 +141,18 @@ export async function finishMatch(room: StoredRoom) {
         gameId: room.options.gameId,
         winnerId,
         startedAt: new Date(room.startedAt!),
-        publicResult: { winnerId, turns: room.game!.turnNumber },
+        publicResult:
+          'board' in room.game!
+            ? {
+                winnerId,
+                draw: room.game.draw,
+                reason: room.game.endReason,
+                turns: room.game.turnNumber,
+                moves: room.game.moves.map((move) => ({ ...move })),
+                options: { ...room.game.options },
+                winningLine: room.game.winningLine.map((point) => ({ ...point })),
+              }
+            : { winnerId, turns: room.game!.turnNumber },
         players: {
           create: room.players.map((p) => ({
             userId: p.isAI ? null : p.id,
@@ -210,28 +227,30 @@ export async function profile(userId: string): Promise<ProfileData> {
         take: 20,
       }),
       prisma.friend.findMany({ where: { userId }, include: { friend: true } }),
-      prisma.ranking.findMany({
-        where: { gameId: 'uno' },
-        include: { user: true },
-        orderBy: [{ score: 'desc' }, { wins: 'desc' }],
+      prisma.ranking.groupBy({
+        by: ['userId'],
+        _sum: { wins: true, played: true, score: true },
+        orderBy: [{ _sum: { score: 'desc' } }, { _sum: { wins: 'desc' } }],
         take: 20,
       }),
     ]);
+    const rankedUsers = await prisma.user.findMany({ where: { id: { in: ranking.map((r) => r.userId) } } });
     return {
       user,
       matches: rows.map((r) => ({
         id: r.matchId,
         gameName: r.match.game.name,
         won: r.won,
+        draw: (r.match.publicResult as { draw?: boolean }).draw === true,
         createdAt: r.match.endedAt.toISOString(),
         score: r.score,
       })),
       friends: relations.map((r) => publicUser(r.friend)),
       rankings: ranking.map((r) => ({
-        user: publicUser(r.user),
-        wins: r.wins,
-        played: r.played,
-        score: r.score,
+        user: publicUser(rankedUsers.find((user) => user.id === r.userId)!),
+        wins: r._sum.wins ?? 0,
+        played: r._sum.played ?? 0,
+        score: r._sum.score ?? 0,
       })),
     };
   }
@@ -256,8 +275,9 @@ export async function profile(userId: string): Promise<ProfileData> {
       .slice(0, 20)
       .map(([id, m]) => ({
         id,
-        gameName: 'UNO',
+        gameName: m.room.options.gameId === 'gomoku' ? '五子棋' : 'UNO',
         won: m.room.game?.winnerId === userId,
+        draw: !!m.room.game && 'draw' in m.room.game && m.room.game.draw,
         createdAt: m.endedAt,
         score: m.room.game?.winnerId === userId ? 30 : 5,
       })),

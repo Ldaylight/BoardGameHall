@@ -20,7 +20,7 @@ export function UnoArena({
   pendingDraws = {},
   children,
 }: {
-  room: RoomView;
+  room: RoomView<import('../../../shared/games/uno').UnoView>;
   me?: string;
   now: number;
   reduced: boolean;

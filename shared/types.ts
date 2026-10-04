@@ -43,6 +43,7 @@ export interface RoomOptions {
   allowSpectators: boolean;
   allowAI: boolean;
   difficulty: Difficulty;
+  gomoku?: Partial<import('./games/gomoku/types.js').GomokuOptions>;
 }
 export interface ChatMessage {
   id: string;
@@ -55,7 +56,7 @@ export interface GameLog {
   id: string;
   text: string;
   event?: {
-    type: 'play' | 'draw' | 'uno' | 'win' | 'pass' | 'penalty';
+    type: 'play' | 'draw' | 'uno' | 'win' | 'pass' | 'penalty' | 'place' | 'draw-game';
     playerId: string;
     value?: import('./games/uno/index.js').Value;
     count?: number;
@@ -72,19 +73,24 @@ export interface RoomSummary {
   status: 'waiting' | 'playing' | 'finished';
   allowSpectators: boolean;
 }
-export interface RoomView extends RoomSummary {
+export type GameView = import('./games/uno/index.js').UnoView | import('./games/gomoku/types.js').GomokuView;
+export type GameState =
+  import('./games/uno/index.js').UnoState | import('./games/gomoku/types.js').GomokuState;
+export type GameAction =
+  import('./games/uno/index.js').UnoAction | import('./games/gomoku/types.js').GomokuAction;
+export interface RoomView<View extends GameView = GameView> extends RoomSummary {
   hostId: string;
   options: RoomOptions;
   players: Player[];
   chats: ChatMessage[];
-  game: import('./games/uno/index.js').UnoView | null;
+  game: View | null;
   revision: number;
   matchId: string | null;
   resultSaved: boolean;
 }
 export interface ProfileData {
   user: User;
-  matches: { id: string; gameName: string; won: boolean; createdAt: string; score: number }[];
+  matches: { id: string; gameName: string; won: boolean; draw?: boolean; createdAt: string; score: number }[];
   friends: User[];
   rankings: { user: User; wins: number; played: number; score: number }[];
 }
@@ -100,10 +106,7 @@ export interface ClientEvents {
   'room:ai': (payload: { roomId: string; difficulty: Difficulty; removeId?: string }, ack: Ack<null>) => void;
   'room:start': (payload: { roomId: string }, ack: Ack<null>) => void;
   'room:rematch': (payload: { roomId: string }, ack: Ack<null>) => void;
-  'game:action': (
-    payload: { roomId: string; action: import('./games/uno/index.js').UnoAction; revision: number },
-    ack: Ack<null>,
-  ) => void;
+  'game:action': (payload: { roomId: string; action: GameAction; revision: number }, ack: Ack<null>) => void;
   'room:chat': (payload: { roomId: string; text: string }, ack: Ack<null>) => void;
 }
 export interface ServerEvents {

@@ -17,6 +17,16 @@ const action = z.discriminatedUnion('type', [
   z.object({ type: z.literal('draw') }).strict(),
   z.object({ type: z.literal('pass') }).strict(),
   z.object({ type: z.literal('uno') }).strict(),
+  z
+    .object({
+      type: z.literal('place'),
+      x: z.number().int().min(0).max(14),
+      y: z.number().int().min(0).max(14),
+    })
+    .strict(),
+  z.object({ type: z.literal('resign') }).strict(),
+  z.object({ type: z.literal('undo:request') }).strict(),
+  z.object({ type: z.literal('undo:respond'), accept: z.boolean() }).strict(),
 ]);
 async function respond<T>(ack: Ack<T> | undefined, task: () => Promise<T>) {
   if (typeof ack !== 'function') return;
@@ -66,6 +76,17 @@ export function registerSockets(io: GameServer, rooms: RoomService) {
               allowAI: z.boolean(),
               allowSpectators: z.boolean(),
               difficulty,
+              gomoku: z
+                .object({
+                  blackForbidden: z.boolean().optional(),
+                  overlineForbidden: z.boolean().optional(),
+                  allowUndo: z.boolean().optional(),
+                  allowResign: z.boolean().optional(),
+                  timeoutLoss: z.boolean().optional(),
+                  turnSeconds: z.number().int().min(15).max(180).optional(),
+                })
+                .strict()
+                .optional(),
             })
             .strict()
             .parse(payload);

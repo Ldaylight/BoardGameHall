@@ -9,8 +9,18 @@ import type {
   RoomView,
   ServerEvents,
   User,
+  GameAction,
 } from '../../../shared/types.js';
-import { uno, type UnoAction } from '../../../shared/games/uno/index.js';
+import { uno } from '../../../shared/games/uno/index.js';
+import {
+  applyGameAction,
+  createGame,
+  gameFinished,
+  gameView,
+  isGomoku,
+} from '../../../shared/games/index.js';
+import { timeout } from '../../../shared/games/gomoku/index.js';
+import { computeGomokuMove } from './gomoku-ai.js';
 import {
   createRoomRecord,
   finishMatch,
@@ -22,7 +32,7 @@ import {
 } from './database.js';
 import type { RoomStore, StoredRoom } from './store.js';
 export type GameServer = Server<ClientEvents, ServerEvents, Record<string, never>, { user: User }>;
-const aiDelay = () => 2000 + randomInt(1001);
+const aiDelay = (gomoku: boolean) => (gomoku ? 500 : 2000) + randomInt(1001);
 export class RoomService {
   constructor(
     readonly store: RoomStore,
@@ -48,7 +58,7 @@ export class RoomService {
       players: r.players,
       chats: r.chats,
       game: r.game
-        ? uno.getView(r.game, r.players.some((p) => p.id === userId && !p.hasLeft) ? userId : null)
+        ? gameView(r.game, r.players.some((p) => p.id === userId && !p.hasLeft) ? userId : null)
         : null,
       revision: r.revision,
       matchId: r.matchId,
@@ -105,8 +115,17 @@ export class RoomService {
     user = (await getUser(user.id)) ?? user;
     return this.store.lock(`user:${user.id}`, async () => {
       await this.noOtherSeat(user.id);
-      if (options.gameId !== 'uno') throw new Error('该游戏尚未开放，先来一局 UNO 吧');
-      if (options.maxPlayers < 2 || options.maxPlayers > 6) throw new Error('UNO 人数必须在 2–6 之间');
+      if (!['uno', 'gomoku'].includes(options.gameId)) throw new Error('该游戏尚未开放');
+      if (!Number.isInteger(options.maxPlayers) || options.maxPlayers < 2 || options.maxPlayers > 6)
+        throw new Error('人数必须在 2–6 之间');
+      if (options.gameId === 'gomoku' && options.maxPlayers !== 2) throw new Error('五子棋必须为 2 人');
+      if (
+        options.gomoku?.turnSeconds !== undefined &&
+        (!Number.isInteger(options.gomoku.turnSeconds) ||
+          options.gomoku.turnSeconds < 15 ||
+          options.gomoku.turnSeconds > 180)
+      )
+        throw new Error('回合时限必须在 15–180 秒之间');
       const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
       let code = '';
       const existing = new Set((await this.store.list()).map((r) => r.code));
@@ -243,7 +262,10 @@ export class RoomService {
       if (r.players.length < 2) throw new Error('至少需要 2 位玩家');
       if (r.players.some((p) => !p.ready)) throw new Error('请等待所有玩家准备');
       r.players.sort((a, b) => a.seat - b.seat);
-      r.game = uno.createState(r.players.map((p) => p.id));
+      r.game = createGame(
+        r.options,
+        r.players.map((p) => p.id),
+      );
       r.status = 'playing';
       r.matchId = randomUUID();
       r.startedAt = new Date().toISOString();
@@ -253,20 +275,36 @@ export class RoomService {
     });
   }
   private schedule(r: StoredRoom) {
-    if (!r.game || r.game.winnerId) {
+    if (!r.game || gameFinished(r.game)) {
       r.nextActionAt = null;
       return;
     }
-    const p = r.players.find((p) => p.id === r.game!.players[r.game!.currentIndex]);
-    r.nextActionAt = p && (p.isAI || !p.connected) ? Date.now() + aiDelay() : null;
+    const p = this.actor(r);
+    r.nextActionAt =
+      p && (p.isAI || (!p.connected && !(isGomoku(r.game) && r.game.options.timeoutLoss)))
+        ? Date.now() + aiDelay(isGomoku(r.game))
+        : null;
   }
-  async action(user: User, id: string, action: UnoAction, revision: number) {
+  private actor(r: StoredRoom) {
+    if (!r.game) return undefined;
+    if (isGomoku(r.game) && r.game.undoRequest) {
+      const requester = r.game.undoRequest.playerId;
+      const opponent = r.players.find((p) => p.id !== requester);
+      if (opponent?.isAI) return opponent;
+    }
+    return r.players.find((p) => p.id === r.game!.players[r.game!.currentIndex]);
+  }
+  // Both Socket.IO game:action and AI actions enter this authority/revision path.
+  private applyAction(r: StoredRoom, playerId: string, action: GameAction, revision: number) {
+    if (r.status !== 'playing' || !r.game) throw new Error('对局尚未开始或已结束');
+    if (revision !== r.revision) throw new Error('状态已更新，请按最新状态重试');
+    r.game = applyGameAction(r.game, playerId, action);
+    this.schedule(r);
+    if (gameFinished(r.game)) r.status = 'finished';
+  }
+  async action(user: User, id: string, action: GameAction, revision: number) {
     await this.mutate(id, user.id, async (r) => {
-      if (r.status !== 'playing' || !r.game) throw new Error('牌局尚未开始或已结束');
-      if (revision !== r.revision) throw new Error('状态已更新，请按最新手牌重试');
-      r.game = uno.applyAction(r.game, user.id, action);
-      this.schedule(r);
-      if (r.game.winnerId) r.status = 'finished';
+      this.applyAction(r, user.id, action, revision);
     });
   }
   async chat(user: User, id: string, text: string) {
@@ -355,7 +393,7 @@ export class RoomService {
     r.revision++;
     r.updatedAt = Date.now();
     await this.store.put(r);
-    if (r.status === 'finished' && r.game?.winnerId && !r.resultSaved) {
+    if (r.status === 'finished' && r.game && gameFinished(r.game) && !r.resultSaved) {
       try {
         await finishMatch(r);
         r.resultSaved = true;
@@ -379,7 +417,12 @@ export class RoomService {
   async tick() {
     const rooms = await this.store.list();
     for (const snapshot of rooms) {
-      if (snapshot.status === 'finished' && snapshot.game?.winnerId && !snapshot.resultSaved) {
+      if (
+        snapshot.status === 'finished' &&
+        snapshot.game &&
+        gameFinished(snapshot.game) &&
+        !snapshot.resultSaved
+      ) {
         await this.store.lock(`room:${snapshot.id}`, async () => {
           const r = await this.requireRoom(snapshot.id);
           if (!r.resultSaved) await this.commit(r);
@@ -392,12 +435,21 @@ export class RoomService {
       await this.store.lock(`room:${snapshot.id}`, async () => {
         const r = await this.requireRoom(snapshot.id);
         if (r.status !== 'playing' || !r.game || Date.now() < (r.nextActionAt ?? r.game.turnDeadline)) return;
-        const id = r.game.players[r.game.currentIndex];
-        const p = r.players.find((p) => p.id === id)!;
-        const a = uno.aiMove(uno.getView(r.game, id), id, p.difficulty);
-        r.game = uno.applyAction(r.game, id, a);
-        this.schedule(r);
-        if (r.game.winnerId) r.status = 'finished';
+        const p = this.actor(r)!;
+        if (isGomoku(r.game) && r.game.options.timeoutLoss && Date.now() >= r.game.turnDeadline) {
+          r.game = timeout(r.game);
+          r.status = 'finished';
+          this.schedule(r);
+        } else {
+          const action = isGomoku(r.game)
+            ? await computeGomokuMove(
+                gameView(r.game, p.id) as import('../../../shared/games/gomoku/types.js').GomokuView,
+                p.id,
+                p.difficulty,
+              )
+            : uno.aiMove(uno.getView(r.game, p.id), p.id, p.difficulty);
+          this.applyAction(r, p.id, action, r.revision);
+        }
         await this.commit(r);
       });
     }

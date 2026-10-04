@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test';
 import { io, type Socket } from 'socket.io-client';
 import type { ClientEvents, ServerEvents, Result, RoomView } from '../../shared/types';
 import { uno, type UnoAction } from '../../shared/games/uno';
+import { unoView } from '../../shared/games/views';
 declare global {
   interface Window {
     drawProgress?: { counts: number[]; observer: MutationObserver };
@@ -93,14 +94,14 @@ test('real table keeps a dragged card visible outside hand, flies draws, reverse
       multiDraw = false;
     for (let step = 0; step < 250 && !(dragged && drew && reversed && skipped && multiDraw); step++) {
       const views = await sync();
-      const game = views[0].game!;
+      const game = unoView(views[0]);
       if (game.winnerId) throw new Error('Match ended before required interactions');
       const index = game.players.indexOf(game.currentPlayerId),
         view = views[index],
         page = pages[index];
-      const legal = uno.getLegalActions(view.game!, game.currentPlayerId);
+      const legal = uno.getLegalActions(unoView(view), game.currentPlayerId);
       const findCard = (action: UnoAction) =>
-        action.type === 'play' ? view.game!.hand.find((c) => c.id === action.cardId) : undefined;
+        action.type === 'play' ? unoView(view).hand.find((c) => c.id === action.cardId) : undefined;
       // Keep at least two cards to avoid a premature win while observing public UI states.
       let action = (!reversed ? legal.find((move) => findCard(move)?.value === 'reverse') : undefined) ??
         (!skipped ? legal.find((move) => findCard(move)?.value === 'skip') : undefined) ??
@@ -108,8 +109,8 @@ test('real table keeps a dragged card visible outside hand, flies draws, reverse
         (!dragged
           ? legal.find((move) => move.type === 'play' && findCard(move)?.color !== 'wild')
           : undefined) ?? { type: 'draw' as const };
-      if (view.game!.drawnCardId) action = legal.find((move) => move.type === 'pass')!;
-      if (view.game!.hand.length <= 2)
+      if (unoView(view).drawnCardId) action = legal.find((move) => move.type === 'pass')!;
+      if (unoView(view).hand.length <= 2)
         action = legal.find((move) => move.type === 'draw' || move.type === 'pass')!;
       if (action.type === 'play' && findCard(action)?.value === 'draw2' && !multiDraw) {
         for (const target of pages)
@@ -157,7 +158,7 @@ test('real table keeps a dragged card visible outside hand, flies draws, reverse
         } else await send(index, view, action);
       }
       const after = await sync(),
-        updated = after[index].game!;
+        updated = unoView(after[index]);
       if (action.type === 'play') {
         const value = findCard(action)?.value;
         if (value === 'draw2' && !multiDraw) {
@@ -193,10 +194,10 @@ test('real table keeps a dragged card visible outside hand, flies draws, reverse
           await victimPage.screenshot({ path: '.artifacts/table-skipped.png' });
           // The current player ends a turn; the server clears the marker when victim becomes active.
           let activeView = (await sync())[index];
-          if (activeView.game!.drawnCardId) await send(index, activeView, { type: 'pass' });
+          if (unoView(activeView).drawnCardId) await send(index, activeView, { type: 'pass' });
           else await send(index, activeView, { type: 'draw' });
           activeView = (await sync())[index];
-          if (activeView.game!.currentPlayerId === game.currentPlayerId && activeView.game!.drawnCardId)
+          if (unoView(activeView).currentPlayerId === game.currentPlayerId && unoView(activeView).drawnCardId)
             await send(index, activeView, { type: 'pass' });
           await expect(victimPage.locator('.skip-hand-overlay')).toHaveCount(0);
           skipped = true;

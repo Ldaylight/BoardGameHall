@@ -34,6 +34,10 @@ function room(): RoomView {
 }
 
 describe('audio preferences and public events', () => {
+  it('plays stone placement through public logs and keeps a full-board draw silent', () => {
+    expect(eventCues({ type: 'place', playerId: 'a' }, 'a')).toEqual([{ effect: 'stone' }]);
+    expect(eventCues({ type: 'draw-game', playerId: '' }, 'a')).toEqual([]);
+  });
   it('recovers corrupted settings and clamps unsafe volume / rejects unknown track IDs', () => {
     expect(normalizeAudio(null)).toEqual(defaultAudio);
     expect(

@@ -2,11 +2,11 @@
 
 一个可运行的多人 Web 桌游大厅。React 18 / TypeScript / Vite / Tailwind CSS / shadcn 风格本地 Radix UI 组件 / Zustand / React Router / Framer Motion；Express / Socket.IO；MySQL 8.0 / Prisma 6；可选 Redis 房间状态与 Socket.IO adapter。
 
-**首个完整示例是 UNO。** 五子棋、中国象棋、斗地主、德州扑克保留大厅入口和独立类型接口，明确标记「即将上线」，不包含未实现规则的假开局。默认体验模式也使用真正的 Socket.IO 服务端权威房间；只有持久化层在内存中。游戏目录使用静态 mock 数据先跑通 UI。
+**UNO 和五子棋现已开放。** 五子棋复用大厅、用户、房间、聊天、观战、重连与结算系统；中国象棋、斗地主、德州扑克仍为独立入口，标记「即将上线」。默认体验模式也使用真正的 Socket.IO 服务端权威房间；只有持久化层在内存中。游戏目录使用静态 mock 数据先跑通 UI。
 
 ## 电脑重启后，如何重新打开项目
 
-本机已经安装依赖、生成 Prisma 客户端、迁移并初始化数据库。普通重启后无需重复安装、迁移或种子初始化，保留已有 `.env`。
+本机已经安装依赖、生成 Prisma 客户端、迁移并初始化数据库，包括五子棋平局迁移。普通重启后无需重复安装、迁移或种子初始化，保留已有 `.env`。其他已部署环境更新本次代码后，需要先执行一次 `npm run db:generate` 和 `npm run db:migrate`。
 
 在 PowerShell 中运行：
 
@@ -155,13 +155,27 @@ UNO 对局去除大厅页眉、页脚、面包屑和营销标题，牌桌占满�
 
 实现标准 108 张牌、7 张起手、颜色/数值匹配、跳过、反转、+2、万能变色、+4（有当前色时不允许使用）、摸牌与结束回合、牌堆耗尽重洗、清空手牌获胜。已核对 [Mattel 官方 UNO 规则](https://shop.mattel.com/pages/games-uno-braille-rules) 与 [官方移动版说明](https://pre-letsplayuno.mattel163.com/news/guide/20181213/30092_732580.html)：打出倒数第二张前喊 UNO，漏喊被其他玩家抓到罚摸 **2 张**。本大厅沿用该罚牌数量，但**自动判罚漏喊**，不实现抓漏喊的时限窗口；不叠加罚牌，不实现 +4 挑战或抢喊 UNO。两人反转相当于跳过。摸到可出的牌时只可打出刚摸到的一张或 pass。回合 45 秒，超时中等策略代打；断线后临时代打，重连恢复自己手牌；主动离开后保留该手牌由 AI 完成本局，并让出房主身份。
 
-`GameDefinition<State, Action, View>`：`id/name/minPlayers/maxPlayers/createState/applyAction/getLegalActions/aiMove/getView`。UNO 独立实现；其他四款独立目录提供后续动作与状态契约，启用新游戏时同时接入服务端规则分发与桌面渲染。
+`GameDefinition<State, Action, View, Options>`：`id/name/minPlayers/maxPlayers/createState/applyAction/getLegalActions/aiMove/getView`；第四个可选泛型允许每款游戏定义自己的规则配置。UNO 和五子棋独立实现，服务端统一分发动作，客户端按游戏加载桌面。
 
-AI 每次动作由服务端设置 2000–3000ms 思考时间，包括 AI 摸牌后继续出牌，以及断线玩家的 AI 接管；调度器在时间到达后执行。简单随机合法动作；中等根据手牌颜色数量、效果牌和下一位公共手牌数量评分；困难档是明确预留，当前回退中等策略。AI 函数只接受 `UnoView`，没有牌堆顺序和对手手牌。观战者手牌数组为空。
+UNO AI 每次动作由服务端设置 2000–3000ms 思考时间，包括 AI 摸牌后继续出牌，以及断线玩家的 AI 接管；调度器在时间到达后执行。简单随机合法动作；中等根据手牌颜色数量、效果牌和下一位公共手牌数量评分；UNO 困难档当前回退中等策略。AI 函数只接受 `UnoView`，没有牌堆顺序和对手手牌。观战者手牌数组为空。
 
 卡牌 2.5:3.5，扇形排列，悬停上浮 8px + rotateX/rotateY，选中放大 1.15 倍；普通灰边、稀有蓝边、史诗紫色粒子、传说金色呼吸光；发牌翻转与出牌拖尾。封面为本地 CSS/SVG 图形，无外部图片或字体依赖。支持系统减少动画偏好和设置页面动画开关。
 
 ## 6. 开发顺序与目录
+
+### 五子棋模块
+
+大厅选择「五子棋」→ 创建两人房间 → 邀请朋友或添加 AI → 双方准备 → 房主开始。座位 1 执黑先手，座位 2 执白后手。15×15 交叉点棋盘默认自由规则：横、竖、两条斜线连续五子或以上获胜；225 格全满且无五连判平局；无开局位置限制，也不采用交换开局。服务端按认证用户和房间版本拒绝重复落子、抢回合、观战落子和伪造动作。
+
+创建房间时可配置：黑棋禁手（三三、四四、长连）、仅黑棋长连禁手、悔棋、认输、超时判负，以及 15–180 秒回合时限。禁手判断参考 [RIF 国际连珠规则 9.2–9.3](https://renju.se/rif/rifrules.htm)：四按棋子集合去重，真活三需要有合法的活四延伸，递归排除延伸自身禁手的假活三；恰好五连优先。这里采用「禁止在禁手点落子，提示重选」的大厅交互，未使用正式连珠比赛的禁手落子后判负和指定开局流程。仅长连选项限制黑棋六连及以上，白棋长连始终获胜。
+
+悔棋需要对手同意，每人每局最多申请一次；撤回自己最后一步，以及对手已跟随落下的一步，恢复申请者的回合。拒绝不改变棋盘；申请不暂停计时，对手继续落子会取消申请。AI 会在思考延迟后同意有效悔棋。认输可在己方或对方回合确认，立即由服务端判对手获胜；未开启的选项不能被伪造请求使用。超时判负开启时，断线也继续计时，服务端裁判判负；关闭时超时或离线由 AI 临时代下。
+
+AI 使用公开 `GomokuView`：简单从所有合法空位随机选点；中等按五格棋形进行进攻/防守评分，优先连五、堵四和堵三；困难使用 Minimax + Alpha-Beta，完成至少 4 层后在预算内尝试 5–6 层，仅考虑已有棋子周围两格内的候选点，并按启发式排序保留有限分支。直接连五或必须堵四的局面使用战术捷径。服务端设置 500–1500ms 思考等待；计算在 Node 工作线程执行，避免阻塞聊天和其他房间。AI 产出标准 `{ type: 'place', x, y }`，与 Socket.IO `game:action` 共用动作校验、版本检查、状态广播和结算入口，不绕过游戏规则。
+
+棋盘采用暗色玻璃、青色微光网格、蓝紫高光黑子与青光白子；当前玩家头像呼吸高亮，落子弹跳，最后一步金色标记，胜利金色连线与粒子。聊天、动态默认折叠，桌面、手机竖屏/横屏和减少动画偏好可用；落子音效从公开服务端日志触发。
+
+实时棋盘保存在原来的内存 / Redis 房间状态中，落子不逐步写 MySQL。结束时在原有事务内保存 Match、MatchPlayer、金币和按游戏的 Ranking，并在 `publicResult` 保存完整棋谱、规则、胜利线和结束原因；总排行榜汇总已开放游戏。平局的 `winnerId=null`，双方各获得参与奖励（10 金币、5 积分），不计胜场。新增迁移只将 `Match.winnerId` 改为可空，保留旧对局。无需新增 npm 依赖。
 
 1. Vite / 路由 / UI / mock 游戏目录。
 2. MySQL schema / Compose / 初始迁移 / 五款游戏 seed。
@@ -175,7 +189,7 @@ AI 每次动作由服务端设置 2000–3000ms 思考时间，包括 AI 摸牌�
 client/
   src/
     components/         # Layout, GameArt, PlayingCard, Chat, RoomDialogs, ui/*
-    pages/              # Lobby, Room, GameTable, Profile, Settings
+    pages/              # Lobby, Room, GameTable(分发), UnoTable, GomokuTable, Profile, Settings
     stores/app.ts       # Zustand 用户、连接、房间和消息
     lib/                # api, useRoom, utils
     styles.css          # 视觉系统、卡牌动效、响应式
@@ -188,13 +202,18 @@ server/src/
     database.ts         # MySQL 持久化、事务 / mock 存储
     rooms.ts            # 权威房间服务、AI、隐私投影
     store.ts            # MemoryStore / RedisStore
+    gomoku-ai.ts        # 开发/生产通用的 AI 工作线程
 shared/
   types.ts
   catalog.ts
   games/
     definition.ts
     uno/index.ts        # 完整 UNO 规则和公平 AI
-    gomoku/index.ts
+    gomoku/
+      index.ts          # 五子棋状态、合法动作、悔棋/认输/超时
+      types.ts          # 棋盘、动作和可选规则类型
+      rules.ts          # 连珠和递归禁手检测
+      ai.ts             # 随机 / 启发式 / Alpha-Beta
     xiangqi/index.ts
     doudizhu/index.ts
     holdem/index.ts
@@ -205,6 +224,9 @@ prisma/
 tests/
   uno.test.ts
   rooms.test.ts
+  gomoku.test.ts
+  gomoku-rooms.test.ts
+  e2e/gomoku.spec.ts
   e2e/lobby.spec.ts
 ```
 

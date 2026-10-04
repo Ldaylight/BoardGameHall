@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { MemoryStore } from '../server/src/services/store';
 import { RoomService, type GameServer } from '../server/src/services/rooms';
 import type { RoomOptions, User } from '../shared/types';
+import { unoView } from '../shared/games/views';
 const user = (name: string): User => ({ id: randomUUID(), name, avatar: 'leaf', coins: 1000, level: 1 });
 const options: RoomOptions = {
   gameId: 'uno',
@@ -52,8 +53,8 @@ describe('authoritative room lifecycle', () => {
     await rooms.ready(b, r.id, true);
     await rooms.start(a, r.id);
     const view = await rooms.sync(a, r.id);
-    expect(view.game?.hand).toHaveLength(7);
-    expect((await rooms.join(spectator, r.code, true)).game?.hand).toHaveLength(0);
+    expect(unoView(view).hand).toHaveLength(7);
+    expect(unoView(await rooms.join(spectator, r.code, true)).hand).toHaveLength(0);
     await expect(rooms.sync(user('outsider'), r.id)).rejects.toThrow('加入');
     await expect(rooms.action(a, r.id, { type: 'draw' }, 0)).rejects.toThrow('更新');
   });
@@ -72,7 +73,7 @@ describe('authoritative room lifecycle', () => {
     await rooms.tick();
     expect((await rooms.store.get(r.id))?.game?.turnNumber).toBe(0);
     await rooms.presence(a.id, true);
-    expect((await rooms.sync(a, r.id)).game?.hand).toEqual(before.game?.hand);
+    expect(unoView(await rooms.sync(a, r.id)).hand).toEqual(unoView(before).hand);
     await rooms.presence(a.id, false);
     const due = (await rooms.store.get(r.id))!.nextActionAt!;
     const clock = vi.spyOn(Date, 'now');

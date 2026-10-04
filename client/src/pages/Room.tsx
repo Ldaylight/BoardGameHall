@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Avatar } from '@/components/Layout';
 import { InviteButton } from '@/components/RoomDialogs';
 import { Chat } from '@/components/Chat';
+import { defaultGomokuOptions } from '../../../shared/games/gomoku/types';
 export function Room() {
   const { room, roomId, connected, leave } = useRoom();
   const user = useApp((s) => s.session?.user);
@@ -34,6 +35,8 @@ export function Room() {
   const host = room.hostId === user?.id;
   const me = room.players.find((p) => p.id === user?.id);
   const humansReady = room.players.filter((p) => !p.isAI).every((p) => p.ready);
+  const isGomoku = room.gameId === 'gomoku';
+  const rules = { ...defaultGomokuOptions, ...room.options.gomoku };
   async function execute(task: () => Promise<unknown>) {
     setBusy(true);
     await perform(task);
@@ -44,13 +47,19 @@ export function Room() {
       <div className="breadcrumb">
         <Link to="/lobby">桌游大厅</Link>
         <ChevronRight size={13} />
-        <span>UNO 房间</span>
+        <span>{isGomoku ? '五子棋' : 'UNO'} 房间</span>
       </div>
       <div className="page-heading">
         <div>
           <span className="eyebrow">GOOD COMPANY, GREAT GAME</span>
           <h1>{room.name}</h1>
-          <p>{host ? '你是房主，召集伙伴开始一场好牌局。' : '找个舒服的座位，准备好就出发。'}</p>
+          <p>
+            {isGomoku
+              ? '黑白之间，落下一步好棋。座位 1 执黑先手，座位 2 执白后手。'
+              : host
+                ? '你是房主，召集伙伴开始一场好牌局。'
+                : '找个舒服的座位，准备好就出发。'}
+          </p>
         </div>
         <div className="room-head-actions">
           <span className="room-code">#{room.code}</span>
@@ -77,7 +86,9 @@ export function Room() {
                 const p = room.players.find((p) => p.seat === seat);
                 return p ? (
                   <div className="seat-card" key={seat}>
-                    <span className="seat-number">SEAT 0{seat + 1}</span>
+                    <span className="seat-number">
+                      {isGomoku ? (seat === 0 ? '● 黑棋 · 先手' : '○ 白棋 · 后手') : `SEAT 0${seat + 1}`}
+                    </span>
                     {p.id === room.hostId && <Crown className="seat-crown" size={16} />}
                     <Avatar name={p.name} ai={p.isAI} />
                     <h3>
@@ -99,7 +110,13 @@ export function Room() {
                     {p.isAI && (
                       <>
                         <span className="seat-options">
-                          {p.difficulty === 'easy' ? '简单' : p.difficulty === 'medium' ? '中等' : '困难*'}
+                          {p.difficulty === 'easy'
+                            ? '简单'
+                            : p.difficulty === 'medium'
+                              ? '中等'
+                              : isGomoku
+                                ? '困难'
+                                : '困难*'}
                         </span>
                         {host && (
                           <button
@@ -156,7 +173,7 @@ export function Room() {
                 >
                   <option value="easy">AI · 简单</option>
                   <option value="medium">AI · 中等</option>
-                  <option value="hard">AI · 困难（中等策略）</option>
+                  <option value="hard">AI · 困难{isGomoku ? '（Alpha-Beta）' : '（中等策略）'}</option>
                 </select>
               )}
               {me && !me.isAI && (
@@ -209,25 +226,62 @@ export function Room() {
                     : !humansReady
                       ? '等待所有真人玩家准备。AI 已经迫不及待了。'
                       : '大家都准备好了，房主可以开始！'}{' '}
-              困难 AI 当前使用中等策略。
+              {isGomoku ? '困难 AI 使用 4–6 层 Alpha-Beta 搜索。' : '困难 AI 当前使用中等策略。'}
             </p>
           </section>
           <section className="panel rules-panel">
             <h2 className="panel-title">
               <Layers3 size={18} />
-              UNO · 本大厅规则
+              {isGomoku ? '五子棋' : 'UNO'} · 本大厅规则
             </h2>
-            <div className="rule-tags">
-              <span>2–6 人</span>
-              <span>每人 7 张</span>
-              <span>45 秒回合</span>
-              <span>免费开局</span>
-            </div>
-            <p>
-              出与弃牌颜色或数字相同的牌，万能牌可指定颜色；+4 仅在没有当前颜色的牌时可出。不叠加罚牌，+2 / +4
-              让下一位摸牌并跳过。无牌可出时摸一张：能出则选择打出或结束回合，不能出则自动跳过。轮到自己且只剩两张时，先点「UNO!」按钮，再打出倒数第二张；漏喊由本大厅自动判罚摸两张。声明本回合有效，摸牌后需重新声明。两人局反转等同跳过。率先清空手牌获胜。超时或离线由
-              AI 临时代打。
-            </p>
+            {isGomoku ? (
+              <>
+                <div className="rule-tags">
+                  <span>15 × 15 棋盘</span>
+                  <span>黑棋先手</span>
+                  <span>{rules.turnSeconds} 秒回合</span>
+                  <span>
+                    {rules.blackForbidden
+                      ? '黑棋禁手'
+                      : rules.overlineForbidden
+                        ? '黑棋长连禁手'
+                        : '自由规则'}
+                  </span>
+                </div>
+                <p>
+                  在空交叉点轮流落子，横、竖、斜连续五子或以上获胜，棋盘满且无人获胜则平局。
+                  {rules.blackForbidden
+                    ? '黑棋三三、四四、长连禁手（真活三检测），恰好五连优先获胜。'
+                    : rules.overlineForbidden
+                      ? '黑棋不可形成六连或以上，白棋不受限制。'
+                      : '双方均无禁手，长连同样获胜。'}
+                  禁手位置由服务器拒绝落子。
+                  {rules.allowUndo
+                    ? '悔棋需要对手同意，每人每局限一次；对手继续落子会取消申请。'
+                    : '此房间未启用悔棋。'}
+                  {rules.allowResign ? '可主动认输。' : '此房间未启用认输。'}
+                  {rules.timeoutLoss
+                    ? '超过回合时限直接判负，离线也继续计时。'
+                    : '超时或离线由 AI 临时代下。'}
+                  AI 只读取公开棋盘，行动延迟 500–1500 毫秒。
+                </p>
+              </>
+            ) : (
+              <>
+                <div className="rule-tags">
+                  <span>2–6 人</span>
+                  <span>每人 7 张</span>
+                  <span>45 秒回合</span>
+                  <span>免费开局</span>
+                </div>
+                <p>
+                  出与弃牌颜色或数字相同的牌，万能牌可指定颜色；+4 仅在没有当前颜色的牌时可出。不叠加罚牌，+2
+                  / +4
+                  让下一位摸牌并跳过。无牌可出时摸一张：能出则选择打出或结束回合，不能出则自动跳过。轮到自己且只剩两张时，先点「UNO!」按钮，再打出倒数第二张；漏喊由本大厅自动判罚摸两张。声明本回合有效，摸牌后需重新声明。两人局反转等同跳过。率先清空手牌获胜。超时或离线由
+                  AI 临时代打。
+                </p>
+              </>
+            )}
           </section>
         </div>
         <aside className="room-side">

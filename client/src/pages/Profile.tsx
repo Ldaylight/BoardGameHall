@@ -67,7 +67,7 @@ export function Profile() {
           <section className="panel mt-6">
             <h2 className="panel-title">
               <Crown size={18} />
-              UNO 排行榜
+              桌游总排行榜
             </h2>
             {profile.rankings.length ? (
               profile.rankings.slice(0, 10).map((r, i) => (
@@ -118,7 +118,9 @@ export function Profile() {
                     {m.gameName}
                     <small>{new Date(m.createdAt).toLocaleString('zh-CN')}</small>
                   </span>
-                  <span className={`result-badge ${m.won ? '' : 'loss'}`}>{m.won ? '胜利' : '参与'}</span>
+                  <span className={`result-badge ${m.won ? '' : 'loss'}`}>
+                    {m.draw ? '平局' : m.won ? '胜利' : '参与'}
+                  </span>
                   <span>
                     {m.won ? '+100 金币' : '+10 金币'} · {m.score} 积分
                   </span>
@@ -128,7 +130,7 @@ export function Profile() {
               <div className="profile-empty">
                 你的第一场精彩，尚未开场。
                 <br />
-                去大厅创建 UNO 房间，试试身手。
+                去大厅创建 UNO 或五子棋房间，试试身手。
               </div>
             )}
           </section>

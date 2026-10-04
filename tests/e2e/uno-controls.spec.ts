@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test';
 import { io, type Socket } from 'socket.io-client';
 import type { ClientEvents, ServerEvents, Result, RoomView } from '../../shared/types';
 import { uno } from '../../shared/games/uno';
+import { unoView } from '../../shared/games/views';
 
 function request<T>(send: (ack: (result: Result<T>) => void) => void): Promise<T> {
   return new Promise((resolve, reject) => {
@@ -65,7 +66,7 @@ test('real match activates UNO only with two cards, saves declaration on refresh
       const socket = sockets[activeIndex];
       const page = pages[activeIndex];
       let view = views[activeIndex];
-      const game = view.game!;
+      const game = unoView(view);
       const move = uno.aiMove(game, game.currentPlayerId, 'medium');
       if (
         move.type === 'draw' &&
@@ -80,7 +81,7 @@ test('real match activates UNO only with two cards, saves declaration on refresh
         await page.reload();
         await expect(page.locator('.uno-call')).toHaveAttribute('aria-pressed', 'true');
         view = await request<RoomView>((ack) => socket.emit('room:sync', { roomId }, ack));
-        expect(view.game!.unoDeclared?.playerId).toBe(game.currentPlayerId);
+        expect(unoView(view).unoDeclared?.playerId).toBe(game.currentPlayerId);
         await request<null>((ack) =>
           socket.emit(
             'game:action',

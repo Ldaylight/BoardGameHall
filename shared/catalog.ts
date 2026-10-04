@@ -24,7 +24,7 @@ export const games: GameMeta[] = [
     maxPlayers: 2,
     supportsAI: true,
     supportsMultiplayer: true,
-    available: false,
+    available: true,
     accent: '#8faca0',
     tag: '经典棋类',
     description: '黑白之间的博弈，率先连成五子即获胜。',

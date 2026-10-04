@@ -8,6 +8,7 @@ export type SoundEffect =
   | 'deal'
   | 'draw'
   | 'play'
+  | 'stone'
   | 'skip'
   | 'reverse'
   | 'draw2'
@@ -222,6 +223,10 @@ class AudioEngine {
       case 'play':
         this.swish(delay, 0.07);
         this.tone(52, delay, 0.1, 0.2, 'triangle');
+        break;
+      case 'stone':
+        this.tone(48, delay, 0.09, 0.24, 'triangle', false, 34);
+        this.tone(86, delay, 0.035, 0.08, 'sine');
         break;
       case 'skip':
         chord([79, 67, 55], 0.05, 0.15);

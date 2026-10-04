@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { defaultGomokuOptions, type GomokuOptions } from '../../../shared/games/gomoku/types';
 import { ArrowUpRight, Bot, Copy, DoorOpen, Plus, Users } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { games } from '../../../shared/catalog';
@@ -24,12 +25,31 @@ export function CreateRoomDialog({
   const [allowSpectators, setAllowSpectators] = useState(true);
   const [difficulty, setDifficulty] = useState<Difficulty>('medium');
   const [busy, setBusy] = useState(false);
+  const [gomoku, setGomoku] = useState<GomokuOptions>({ ...defaultGomokuOptions });
+  useEffect(() => {
+    if (open) setGameId(initialGame);
+  }, [open, initialGame]);
+  useEffect(() => {
+    if (gameId === 'gomoku') setMaxPlayers(2);
+  }, [gameId]);
   const connected = useApp((s) => s.connected);
   async function create() {
     setBusy(true);
     await perform(async () => {
       const room = await request<RoomView>((ack) =>
-        socket.emit('room:create', { gameId, name, maxPlayers, allowAI, allowSpectators, difficulty }, ack),
+        socket.emit(
+          'room:create',
+          {
+            gameId,
+            name,
+            maxPlayers: gameId === 'gomoku' ? 2 : maxPlayers,
+            allowAI,
+            allowSpectators,
+            difficulty,
+            ...(gameId === 'gomoku' ? { gomoku } : {}),
+          },
+          ack,
+        ),
       );
       useApp.getState().setActiveRoom(room);
       onOpenChange(false);
@@ -72,7 +92,7 @@ export function CreateRoomDialog({
             <label>
               座位数量
               <select value={maxPlayers} onChange={(e) => setMaxPlayers(Number(e.target.value))}>
-                {[2, 3, 4, 5, 6].map((n) => (
+                {(gameId === 'gomoku' ? [2] : [2, 3, 4, 5, 6]).map((n) => (
                   <option key={n} value={n}>
                     {n} 人
                   </option>
@@ -82,12 +102,54 @@ export function CreateRoomDialog({
             <label>
               AI 难度
               <select value={difficulty} onChange={(e) => setDifficulty(e.target.value as Difficulty)}>
-                <option value="easy">简单 · 随机出牌</option>
-                <option value="medium">中等 · 策略出牌</option>
-                <option value="hard">困难 · 预留（当前中等）</option>
+                <option value="easy">简单 · {gameId === 'gomoku' ? '随机落子' : '随机出牌'}</option>
+                <option value="medium">中等 · {gameId === 'gomoku' ? '进攻与防守' : '策略出牌'}</option>
+                <option value="hard">
+                  困难 · {gameId === 'gomoku' ? 'Alpha-Beta 搜索' : '预留（当前中等）'}
+                </option>
               </select>
             </label>
           </div>
+          {gameId === 'gomoku' && (
+            <fieldset className="gomoku-options">
+              <legend>五子棋规则 · 默认自由规则</legend>
+              {(
+                [
+                  ['blackForbidden', '黑棋禁手（三三、四四、长连）'],
+                  ['overlineForbidden', '黑棋长连禁手'],
+                  ['allowUndo', '允许申请悔棋（需对手同意）'],
+                  ['allowResign', '允许认输'],
+                  ['timeoutLoss', '超时判负'],
+                ] as const
+              ).map(([key, label]) => (
+                <label className="check-row" key={key}>
+                  <span>{label}</span>
+                  <input
+                    type="checkbox"
+                    checked={gomoku[key]}
+                    disabled={key === 'overlineForbidden' && gomoku.blackForbidden}
+                    onChange={(e) => setGomoku({ ...gomoku, [key]: e.target.checked })}
+                  />
+                </label>
+              ))}
+              <label>
+                每步时限
+                <select
+                  value={gomoku.turnSeconds}
+                  onChange={(e) => setGomoku({ ...gomoku, turnSeconds: Number(e.target.value) })}
+                >
+                  {[15, 30, 45, 60, 90, 120, 180].map((s) => (
+                    <option value={s} key={s}>
+                      {s} 秒
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <p className="room-hint">
+                禁手位置不可落子。未开启超时判负时，超时由 AI 临时代下；悔棋每人每局限一次。
+              </p>
+            </fieldset>
+          )}
           <label className="check-row">
             <span>
               <Bot size={17} />

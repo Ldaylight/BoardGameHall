@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { Redis } from 'ioredis';
 import type { ChatMessage, Player, RoomOptions } from '../../../shared/types.js';
-import type { UnoState } from '../../../shared/games/uno/index.js';
+import type { GameState } from '../../../shared/types.js';
 export interface StoredRoom {
   id: string;
   code: string;
@@ -11,7 +11,7 @@ export interface StoredRoom {
   spectators: string[];
   status: 'waiting' | 'playing' | 'finished';
   chats: ChatMessage[];
-  game: UnoState | null;
+  game: GameState | null;
   revision: number;
   matchId: string | null;
   startedAt: string | null;

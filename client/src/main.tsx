@@ -16,6 +16,7 @@ import './table.css';
 import './game-screen.css';
 import './table-v2.css';
 import './audio.css';
+import './gomoku.css';
 import { applyTheme, savedTheme } from '@/lib/themes';
 const GameTable = React.lazy(() =>
   import('@/pages/GameTable').then((module) => ({ default: module.GameTable })),

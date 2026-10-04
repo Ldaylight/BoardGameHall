@@ -8,6 +8,8 @@ export interface AudioCue {
 export function eventCues(event: GameLog['event'], me?: string): AudioCue[] {
   if (!event) return [];
   switch (event.type) {
+    case 'place':
+      return [{ effect: 'stone' }];
     case 'play': {
       const special = ['skip', 'reverse', 'draw2', 'wild', 'wild4'].includes(event.value ?? '');
       return [
@@ -61,7 +63,8 @@ export class GameAudioTracker {
       this.seen = new Set(game.logs.map((log) => log.id));
       this.currentPlayerId = game.currentPlayerId;
       this.tick = null;
-      if (first && connected && game.turnNumber === 0 && !game.winnerId) cues.push({ effect: 'deal' });
+      if (first && connected && 'hand' in game && game.turnNumber === 0 && !game.winnerId)
+        cues.push({ effect: 'deal' });
       return cues;
     }
     const fresh = game.logs.filter((log) => !this.seen.has(log.id));
@@ -76,11 +79,11 @@ export class GameAudioTracker {
 
   countdown(room: RoomView | null, now: number, connected: boolean): AudioCue[] {
     const game = room?.game;
-    if (!game || game.winnerId || !connected) {
+    if (!game || game.winnerId || ('draw' in game && game.draw) || !connected) {
       this.tick = null;
       return [];
     }
-    const seconds = Math.min(45, Math.max(0, Math.ceil((game.turnDeadline - now) / 1000)));
+    const seconds = Math.max(0, Math.ceil((game.turnDeadline - now) / 1000));
     const id = `${room.matchId}:${game.turnNumber}:${game.turnDeadline}:${seconds}`;
     if (id === this.tick) return [];
     const previous = this.tick;

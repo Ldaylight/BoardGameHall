@@ -12,7 +12,7 @@ export interface DrawFlight {
   toY: number;
 }
 export function useDrawAnimations(
-  room: RoomView | null,
+  room: RoomView<import('../../../shared/games/uno').UnoView> | null,
   me: string | undefined,
   connected: boolean,
   reduced: boolean,
