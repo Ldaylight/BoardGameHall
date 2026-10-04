@@ -2,6 +2,8 @@ import { defineConfig } from '@playwright/test';
 export default defineConfig({
   testDir: './tests/e2e',
   timeout: 45000,
+  // Multiplayer tests open several Edge contexts and audio graphs per worker.
+  workers: 2,
   use: {
     baseURL: 'http://localhost:5173',
     headless: true,

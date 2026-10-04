@@ -1,6 +1,9 @@
 import { motion, useMotionValue, useReducedMotion, useSpring, type PanInfo } from 'framer-motion';
 import { cardLabel, type Card } from '../../../shared/games/uno';
 import { cn } from '@/lib/utils';
+import { audioEngine } from '@/lib/audio-engine';
+import { useRef, useState } from 'react';
+import type { ScreenPoint } from '@/lib/table-presentation';
 export const cardColors = {
   red: '#d55b49',
   yellow: '#d1a740',
@@ -16,6 +19,7 @@ export function PlayingCard({
   draggable = false,
   onClick,
   onPlay,
+  onDragCard,
 }: {
   card?: Card;
   back?: boolean;
@@ -23,8 +27,11 @@ export function PlayingCard({
   disabled?: boolean;
   draggable?: boolean;
   onClick?: () => void;
-  onPlay?: () => void;
+  onPlay?: (point?: ScreenPoint) => void;
+  onDragCard?: (point: ScreenPoint | null) => void;
 }) {
+  const [dragging, setDragging] = useState(false);
+  const ignoreClick = useRef(false);
   const rx = useMotionValue(0),
     ry = useMotionValue(0);
   const rotateX = useSpring(rx),
@@ -45,7 +52,9 @@ export function PlayingCard({
     ry.set(((e.clientX - r.left) / r.width - 0.5) * 12);
   }
   function dragEnd(_e: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) {
-    if (info.offset.y < -65 && !disabled) onPlay?.();
+    setDragging(false);
+    onDragCard?.(null);
+    if (info.offset.y < -65 && !disabled) onPlay?.(info.point);
   }
   return (
     <motion.button
@@ -56,6 +65,7 @@ export function PlayingCard({
         `rarity-${back ? 'common' : rarity}`,
         selected && 'selected-card',
         disabled && 'unplayable',
+        dragging && onDragCard && 'drag-source-hidden',
       )}
       style={{ '--face': card ? cardColors[card.color] : undefined, rotateX, rotateY } as React.CSSProperties}
       aria-label={
@@ -63,17 +73,35 @@ export function PlayingCard({
       }
       aria-pressed={onClick ? selected : undefined}
       onPointerMove={move}
+      onPointerEnter={(event) => {
+        if (!back && (onClick || onPlay) && event.pointerType === 'mouse') audioEngine.effect('hover');
+      }}
       onPointerLeave={() => {
         rx.set(0);
         ry.set(0);
       }}
-      onClick={onClick}
+      onClick={() => {
+        if (ignoreClick.current) {
+          ignoreClick.current = false;
+          return;
+        }
+        onClick?.();
+      }}
+      onPointerDown={() => {
+        ignoreClick.current = false;
+      }}
       disabled={disabled && !back}
       whileHover={!back && !disabled && !reduce ? { y: -8, scale: selected ? 1.15 : 1.04 } : undefined}
       animate={{ scale: selected ? 1.15 : 1, y: selected ? -12 : 0, opacity: 1 }}
       initial={reduce ? false : { opacity: 0, y: 22 }}
       transition={{ duration: reduce ? 0 : 0.3 }}
-      drag={draggable && !disabled && !reduce}
+      drag={draggable && !disabled}
+      onDragStart={(_event, info) => {
+        setDragging(true);
+        ignoreClick.current = true;
+        onDragCard?.(info.point);
+      }}
+      onDrag={(_event, info) => onDragCard?.(info.point)}
       dragSnapToOrigin
       onDragEnd={dragEnd}
       dragElastic={0.25}

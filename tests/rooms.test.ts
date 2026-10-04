@@ -57,7 +57,7 @@ describe('authoritative room lifecycle', () => {
     await expect(rooms.sync(user('outsider'), r.id)).rejects.toThrow('加入');
     await expect(rooms.action(a, r.id, { type: 'draw' }, 0)).rejects.toThrow('更新');
   });
-  it('AI only runs after a 500–1500ms delay and reconnection preserves exact hand', async () => {
+  it('AI only runs after a 2000–3000ms delay and reconnection preserves exact hand', async () => {
     const { rooms } = service();
     const a = user('a');
     const r = await rooms.create(a, options);
@@ -67,12 +67,25 @@ describe('authoritative room lifecycle', () => {
     const before = await rooms.sync(a, r.id);
     await rooms.presence(a.id, false);
     const disconnected = await rooms.store.get(r.id);
-    expect(disconnected!.nextActionAt! - Date.now()).toBeGreaterThanOrEqual(450);
-    expect(disconnected!.nextActionAt! - Date.now()).toBeLessThanOrEqual(1500);
+    expect(disconnected!.nextActionAt! - Date.now()).toBeGreaterThanOrEqual(1950);
+    expect(disconnected!.nextActionAt! - Date.now()).toBeLessThanOrEqual(3000);
     await rooms.tick();
     expect((await rooms.store.get(r.id))?.game?.turnNumber).toBe(0);
     await rooms.presence(a.id, true);
     expect((await rooms.sync(a, r.id)).game?.hand).toEqual(before.game?.hand);
+    await rooms.presence(a.id, false);
+    const due = (await rooms.store.get(r.id))!.nextActionAt!;
+    const clock = vi.spyOn(Date, 'now');
+    try {
+      clock.mockReturnValue(due - 1);
+      await rooms.tick();
+      expect((await rooms.store.get(r.id))!.game!.logs).toHaveLength(1);
+      clock.mockReturnValue(due + 1);
+      await rooms.tick();
+      expect((await rooms.store.get(r.id))!.game!.logs.length).toBeGreaterThan(1);
+    } finally {
+      clock.mockRestore();
+    }
   });
   it('intentional leave releases membership while AI takes over remaining hand', async () => {
     const { rooms } = service();

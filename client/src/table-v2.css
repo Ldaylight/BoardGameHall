@@ -1,0 +1,657 @@
+.game-screen .table-v2 .opponent-seat {
+  position: absolute;
+  left: 50%;
+  top: 8%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  z-index: 5;
+  pointer-events: auto;
+}
+.game-screen .table-v2 .table-player {
+  position: relative;
+  inset: auto;
+  transform: none;
+  display: flex;
+  align-items: center;
+}
+.seat-avatar {
+  position: relative;
+  flex-shrink: 0;
+}
+.seat-name {
+  min-width: 0;
+}
+.seat-name b,
+.seat-name small {
+  display: block;
+}
+.game-screen .table-v2 .position-left .opponent-seat {
+  left: 8%;
+  top: 43%;
+  flex-direction: column;
+  gap: 14px;
+}
+.game-screen .table-v2 .position-right .opponent-seat {
+  left: 92%;
+  top: 43%;
+  flex-direction: column;
+  gap: 14px;
+}
+.game-screen .table-v2 .position-top-left .opponent-seat {
+  left: 26%;
+}
+.game-screen .table-v2 .position-top-right .opponent-seat {
+  left: 74%;
+}
+.game-screen .table-v2 .position-bottom .opponent-seat {
+  top: 86%;
+}
+.game-screen .table-v2 .position-left .seat-play-position {
+  left: 24%;
+  top: 57%;
+}
+.game-screen .table-v2 .position-right .seat-play-position {
+  left: 76%;
+  top: 57%;
+}
+.game-screen .table-v2 .position-top .seat-play-position {
+  left: 65%;
+  top: 22%;
+}
+.game-screen .table-v2 .own-public-play {
+  left: 67%;
+  top: 82%;
+}
+.back-stack {
+  --back-width: 42px;
+  --back-height: 59px;
+  position: relative;
+  height: var(--back-height);
+  width: calc(var(--back-width) + (max(1, var(--back-count)) - 1) * var(--back-step));
+  flex-shrink: 0;
+}
+.mini-card-back {
+  position: absolute;
+  top: 0;
+  left: calc(var(--back-index) * var(--back-step));
+  width: var(--back-width);
+  height: var(--back-height);
+  border: 2px solid color-mix(in srgb, var(--mint) 60%, #354139);
+  border-radius: 7px;
+  background: repeating-linear-gradient(135deg, var(--table-dark) 0 3px, var(--table-mid) 3px 6px);
+  transform: rotate(var(--back-angle));
+  box-shadow: -3px 3px 6px #0005;
+  display: grid;
+  place-content: center;
+  text-align: center;
+  color: var(--mint);
+}
+.mini-card-back::before {
+  content: '';
+  position: absolute;
+  inset: 5px;
+  border: 1px solid rgb(var(--accent-rgb) / 0.22);
+  border-radius: 50%;
+  transform: rotate(-22deg);
+}
+.mini-card-back > i {
+  font-size: 9px;
+  font-style: normal;
+  font-weight: 900;
+  opacity: 0.8;
+  position: relative;
+}
+.mini-card-back > strong {
+  font-size: 21px;
+  line-height: 1.15;
+  position: relative;
+  text-shadow: 0 2px 8px #0008;
+}
+.mini-card-back strong small {
+  font-size: 8px;
+  margin-left: 2px;
+}
+.empty-hand-count {
+  font-size: 12px;
+  color: var(--muted);
+}
+.game-screen .table-v2 .deck-corner {
+  position: absolute;
+  left: 24px;
+  top: 8px;
+  z-index: 6;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 9px;
+}
+.deck-corner .back-stack {
+  --back-width: 58px;
+  --back-height: 81px;
+}
+.deck-corner .mini-card-back strong {
+  font-size: 29px;
+}
+.deck-corner > span {
+  font-size: 10px;
+  letter-spacing: 2px;
+  color: var(--muted);
+}
+.game-screen .table-v2 .table-center {
+  width: clamp(180px, 27vmin, 310px);
+  height: clamp(180px, 27vmin, 310px);
+  top: 46%;
+  display: block;
+}
+.direction-ring {
+  position: absolute;
+  inset: 0;
+  filter: drop-shadow(0 5px 3px #0006);
+  opacity: 0.85;
+  transform: scaleX(1);
+  transition: transform 0.5s ease;
+  pointer-events: none;
+}
+.direction-ring.reversed {
+  transform: scaleX(-1);
+}
+.direction-ring svg {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+.direction-ring svg > path {
+  fill: none;
+  stroke: #f0c873;
+  stroke-width: 10;
+  stroke-linecap: round;
+}
+.direction-ring marker path {
+  fill: #f0c873;
+  stroke: #513d1e;
+  stroke-width: 0.6;
+}
+.discard-pile {
+  position: absolute;
+  width: 90px;
+  height: 126px;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+}
+.pile-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.pile-layer .playing-card {
+  width: 100%;
+  height: 100%;
+  border-width: 3px;
+  border-radius: 12px;
+}
+.pile-layer .card-oval {
+  width: 60%;
+  height: 87%;
+}
+.pile-layer .card-oval span {
+  font-size: 39px;
+}
+.pile-top .playing-card {
+  box-shadow:
+    0 7px 18px #0008,
+    0 0 25px rgb(var(--accent-rgb) / 0.2);
+}
+.direction-label {
+  position: absolute;
+  bottom: -10px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 10px;
+  color: #f0dba7;
+  letter-spacing: 2px;
+  white-space: nowrap;
+}
+.game-screen .table-v2 .color-indicator {
+  top: 74%;
+}
+.game-screen .table-v2 .turn-banner {
+  top: 84%;
+}
+.game-screen .table-v2 .hand-panel {
+  width: min(1280px, calc(100% - 36px));
+}
+.hand-main {
+  display: flex;
+  gap: 18px;
+  flex: 1;
+  min-height: 0;
+}
+.hand-content {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  container-type: inline-size;
+}
+.game-screen .table-v2 .own-hand-position {
+  position: relative;
+  inset: auto;
+  transform: none;
+  width: 160px;
+  flex: 0 0 160px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 16px;
+  pointer-events: auto;
+}
+.game-screen .table-v2 .own-hand-position .table-player {
+  width: 160px;
+  left: auto;
+  top: auto;
+}
+.game-screen .table-v2 .own-hand-position .seat-timer {
+  top: -25px;
+  bottom: auto;
+  left: 50%;
+  right: auto;
+  transform: translateX(-50%);
+}
+.game-screen .table-v2 .hand-cards {
+  position: relative;
+  justify-content: safe center;
+  padding: 18px 18px 16px;
+  --hand-card-width: 76px;
+  --hand-card-step: clamp(
+    10px,
+    calc((100cqw - var(--hand-card-width) - 36px) / max(1, var(--hand-size) - 1)),
+    58px
+  );
+}
+.game-screen .table-v2 .hand-slot {
+  flex-basis: var(--hand-card-step);
+  width: var(--hand-card-step);
+  margin-right: 0;
+}
+.game-screen .table-v2 .hand-slot:last-child {
+  flex-basis: var(--hand-card-width);
+  width: var(--hand-card-width);
+  margin-right: 0;
+}
+.game-screen .table-v2 .hand-slot[data-incoming='true'] {
+  pointer-events: none;
+}
+.ban-mark {
+  display: inline-grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  color: #ff575a;
+  filter: drop-shadow(0 0 12px #f9474770);
+  animation: ban-pulse 1.6s ease-in-out infinite;
+}
+.ban-mark svg {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+.ban-mark circle,
+.ban-mark path {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 5;
+  stroke-linecap: round;
+}
+.avatar-ban {
+  position: absolute;
+  inset: -3px;
+  width: calc(100% + 6px);
+  height: calc(100% + 6px);
+  z-index: 2;
+}
+.back-stack-ban {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 3;
+  width: 45px;
+  height: 45px;
+}
+.skip-hand-overlay {
+  position: absolute;
+  inset: 25px 0 0;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  z-index: 25;
+  background: radial-gradient(ellipse, #f34f4f16, transparent 60%);
+}
+.skip-hand-overlay .ban-mark {
+  width: 83px;
+  height: 83px;
+}
+.table-player.is-blocked {
+  border-color: #ff555a70 !important;
+}
+.drag-source-hidden {
+  opacity: 0 !important;
+}
+.card-drag-ghost,
+.card-flight-layer {
+  position: fixed;
+  pointer-events: none;
+  z-index: 70;
+}
+.card-flight-layer {
+  inset: 0;
+  overflow: visible;
+}
+.card-drag-ghost .playing-card {
+  width: 76px;
+  height: 106px;
+  box-shadow:
+    0 12px 28px #0007,
+    0 0 24px rgb(var(--accent-rgb) / 0.4);
+}
+.draw-flight {
+  position: absolute;
+  width: 50px;
+  height: 70px;
+}
+.draw-flight .playing-card {
+  width: 50px;
+  height: 70px;
+  border-width: 2px;
+  border-radius: 8px;
+}
+.draw-flight .card-oval {
+  width: 65%;
+  height: 90%;
+}
+.draw-flight .card-oval span {
+  font-size: 14px;
+}
+.draw-flight-trail {
+  position: absolute;
+  top: -90px;
+  left: 8px;
+  width: 34px;
+  height: 105px;
+  background: linear-gradient(transparent, rgb(var(--accent-rgb) / 0.04), rgb(var(--accent-rgb) / 0.5));
+  filter: blur(7px);
+  transform: rotate(-22deg);
+  transform-origin: bottom center;
+}
+@keyframes ban-pulse {
+  50% {
+    opacity: 0.6;
+    filter: drop-shadow(0 0 18px #f9474790);
+  }
+}
+.reduce-motion .ban-mark {
+  animation: none;
+}
+@media (max-width: 760px) {
+  .game-screen .table-v2 .position-left .opponent-seat {
+    left: 17%;
+    top: 39%;
+    gap: 10px;
+  }
+  .game-screen .table-v2 .position-right .opponent-seat {
+    left: 83%;
+    top: 39%;
+    gap: 10px;
+  }
+  .game-screen .table-v2 .position-top .opponent-seat {
+    top: 13%;
+    gap: 12px;
+  }
+  .game-screen .table-v2 .position-left .seat-play-position {
+    left: 17%;
+    top: 68%;
+  }
+  .game-screen .table-v2 .position-right .seat-play-position {
+    left: 83%;
+    top: 68%;
+  }
+  .game-screen .table-v2 .position-top .seat-play-position {
+    left: 50%;
+    top: 25%;
+  }
+  .game-screen .table-v2 .own-public-play {
+    left: 80%;
+    top: 85%;
+  }
+  .game-screen .table-v2 .table-center {
+    width: 180px;
+    height: 180px;
+    top: 48%;
+  }
+  .discard-pile {
+    width: 62px;
+    height: 87px;
+  }
+  .game-screen .table-v2 .pile-layer .playing-card {
+    width: 62px;
+    height: 87px;
+  }
+  .pile-layer .card-oval span {
+    font-size: 27px;
+  }
+  .direction-ring svg > path {
+    stroke-width: 9px;
+  }
+  .direction-label {
+    font-size: 8px;
+    bottom: -8px;
+  }
+  .back-stack {
+    --back-width: 30px;
+    --back-height: 42px;
+  }
+  .mini-card-back {
+    border-width: 1px;
+    border-radius: 5px;
+  }
+  .mini-card-back > i {
+    font-size: 7px;
+  }
+  .mini-card-back > strong {
+    font-size: 16px;
+  }
+  .mini-card-back strong small {
+    font-size: 6px;
+  }
+  .game-screen .table-v2 .deck-corner {
+    left: 16px;
+    top: 8px;
+    gap: 5px;
+  }
+  .deck-corner .back-stack {
+    --back-width: 40px;
+    --back-height: 56px;
+  }
+  .deck-corner .mini-card-back strong {
+    font-size: 20px;
+  }
+  .deck-corner > span {
+    font-size: 8px;
+  }
+  .game-screen .table-v2 .hand-panel {
+    width: calc(100% - 16px);
+  }
+  .game-screen .table-v2 .own-hand-position {
+    width: 90px;
+    flex-basis: 90px;
+    gap: 12px;
+  }
+  .game-screen .table-v2 .own-hand-position .table-player {
+    width: 90px;
+    padding: 6px;
+  }
+  .hand-main {
+    gap: 8px;
+  }
+  .game-screen .table-v2 .hand-heading small {
+    display: none;
+  }
+  .game-screen .table-v2 .hand-cards {
+    padding: 17px 6px 13px;
+    --hand-card-width: 62px;
+    --hand-card-step: clamp(
+      9px,
+      calc((100cqw - var(--hand-card-width) - 24px) / max(1, var(--hand-size) - 1)),
+      47px
+    );
+  }
+  .game-screen .table-v2 .turn-banner {
+    top: 89%;
+  }
+  .game-screen .table-v2 .color-indicator {
+    top: 76%;
+  }
+  .back-stack-ban {
+    width: 33px;
+    height: 33px;
+  }
+  .skip-hand-overlay .ban-mark {
+    width: 57px;
+    height: 57px;
+  }
+  .game-screen .table-v2.players-5 .position-top-left .opponent-seat,
+  .game-screen .table-v2.players-6 .position-top-left .opponent-seat {
+    left: 22%;
+    top: 13%;
+    flex-direction: column;
+    gap: 7px;
+  }
+  .game-screen .table-v2.players-5 .position-top-right .opponent-seat,
+  .game-screen .table-v2.players-6 .position-top-right .opponent-seat {
+    left: 78%;
+    top: 13%;
+    flex-direction: column;
+    gap: 7px;
+  }
+  .game-screen .table-v2.players-6 .position-top .opponent-seat {
+    top: 13%;
+    flex-direction: column;
+    gap: 7px;
+  }
+  .game-screen .table-v2.players-5 .position-top-left .table-player,
+  .game-screen .table-v2.players-5 .position-top-right .table-player,
+  .game-screen .table-v2.players-6 .position-top-left .table-player,
+  .game-screen .table-v2.players-6 .position-top-right .table-player,
+  .game-screen .table-v2.players-6 .position-top .table-player {
+    width: 85px;
+  }
+  .game-screen .table-v2.players-5 .deck-corner,
+  .game-screen .table-v2.players-6 .deck-corner {
+    top: 26%;
+    left: 10px;
+  }
+}
+@media (max-height: 600px) {
+  .game-screen .table-v2 .position-left .opponent-seat {
+    left: 17%;
+  }
+  .game-screen .table-v2 .position-right .opponent-seat {
+    left: 83%;
+  }
+  .game-screen .table-v2 .hand-cards {
+    --hand-card-width: 50px;
+    --hand-card-step: clamp(
+      9px,
+      calc((100cqw - var(--hand-card-width) - 24px) / max(1, var(--hand-size) - 1)),
+      38px
+    );
+  }
+  .game-screen .table-v2 .opponent-seat {
+    gap: 8px;
+  }
+  .game-screen .table-v2 .position-top .opponent-seat {
+    top: 14%;
+  }
+  .game-screen .table-v2 .position-left .opponent-seat,
+  .game-screen .table-v2 .position-right .opponent-seat {
+    top: 43%;
+    gap: 6px;
+  }
+  .game-screen .table-v2 .table-center {
+    width: 128px;
+    height: 128px;
+    top: 50%;
+  }
+  .discard-pile {
+    width: 44px;
+    height: 62px;
+  }
+  .game-screen .table-v2 .pile-layer .playing-card {
+    width: 44px;
+    height: 62px;
+  }
+  .pile-layer .card-oval span {
+    font-size: 21px;
+  }
+  .direction-label {
+    bottom: -6px;
+    font-size: 7px;
+  }
+  .game-screen .table-v2 .deck-corner {
+    left: 10px;
+    top: 1px;
+  }
+  .deck-corner .back-stack {
+    --back-width: 30px;
+    --back-height: 42px;
+  }
+  .deck-corner > span {
+    display: none;
+  }
+  .back-stack {
+    --back-width: 25px;
+    --back-height: 35px;
+  }
+  .mini-card-back > strong {
+    font-size: 13px;
+  }
+  .game-screen .table-v2 .own-hand-position {
+    width: 124px;
+    flex-basis: 124px;
+    gap: 8px;
+  }
+  .game-screen .table-v2 .own-hand-position .table-player {
+    width: 124px;
+  }
+  .game-screen .table-v2 .own-hand-position .seat-timer {
+    top: auto;
+    bottom: -17px;
+    font-size: 7px;
+    padding: 2px 5px;
+  }
+  .game-screen .table-v2 .position-left .seat-play-position,
+  .game-screen .table-v2 .position-right .seat-play-position {
+    top: 68%;
+  }
+  .game-screen .table-v2 .own-public-play {
+    top: 82%;
+    left: 65%;
+  }
+  .game-screen .table-v2 .position-top .seat-play-position {
+    top: 28%;
+    left: 69%;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ban-mark {
+    animation: none;
+  }
+  .direction-ring {
+    transition: none;
+  }
+}

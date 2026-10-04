@@ -25,6 +25,7 @@ import { useApp } from '@/stores/app';
 import { api, leaveRoom, perform } from '@/lib/api';
 import type { ProfileData } from '../../../shared/types';
 import { JoinRoomDialog } from './RoomDialogs';
+import { AudioButton } from './AudioController';
 export function Brand() {
   return (
     <Link to="/lobby" className="brand">
@@ -99,6 +100,7 @@ export function Layout() {
           <kbd>↵</kbd>
         </form>
         <div className="top-actions">
+          <AudioButton />
           <span className="coins">
             <Coins size={17} />
             {user?.coins.toLocaleString() ?? '1,000'}

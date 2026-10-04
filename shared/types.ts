@@ -54,6 +54,13 @@ export interface ChatMessage {
 export interface GameLog {
   id: string;
   text: string;
+  event?: {
+    type: 'play' | 'draw' | 'uno' | 'win' | 'pass' | 'penalty';
+    playerId: string;
+    value?: import('./games/uno/index.js').Value;
+    count?: number;
+    uno?: boolean;
+  };
 }
 export interface RoomSummary {
   id: string;

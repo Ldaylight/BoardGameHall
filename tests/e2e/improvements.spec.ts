@@ -130,7 +130,8 @@ test('four player table has cardinal seats, retains public cards and returns to 
       await host
         .locator('.table-position')
         .evaluateAll((seats) => seats.map((seat) => seat.getAttribute('data-seat-position'))),
-    ).toEqual(['bottom', 'left', 'top', 'right']);
+    ).toEqual(['left', 'top', 'right', 'bottom']);
+    await expect(host.locator('.hand-panel .position-bottom .table-player')).toBeVisible();
     const arena = await host.locator('.game-arena').boundingBox();
     expect(arena!.width).toBeGreaterThan(900);
     expect(arena!.height).toBeGreaterThan(550);

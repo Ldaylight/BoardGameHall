@@ -5,6 +5,7 @@ import { api, perform } from '@/lib/api';
 import { useApp } from '@/stores/app';
 import type { User } from '../../../shared/types';
 import { themes } from '@/lib/themes';
+import { AudioSettings } from '@/components/AudioSettings';
 export function Settings() {
   const session = useApp((s) => s.session);
   const theme = useApp((s) => s.theme);
@@ -40,6 +41,7 @@ export function Settings() {
           <p>一点小调整，让每一局更舒服。</p>
         </div>
       </div>
+      <AudioSettings />
       <section className="panel settings-section">
         <h2 className="panel-title">
           <UserRound size={18} />

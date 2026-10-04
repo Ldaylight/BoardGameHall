@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion, useReducedMotion } from 'framer-motion';
 import {
@@ -32,12 +32,21 @@ import { UnoArena } from '@/components/UnoArena';
 import { InviteButton } from '@/components/RoomDialogs';
 import { Chat } from '@/components/Chat';
 import { cardColors, PlayingCard } from '@/components/PlayingCard';
+import { AudioButton } from '@/components/AudioController';
+import { audioEngine } from '@/lib/audio-engine';
+import { GameAudioTracker } from '@/lib/game-audio';
+import { BackStack, BanMark, PlayerSeat } from '@/components/PlayerSeat';
+import { DrawFlights, DraggedCard } from '@/components/CardFlights';
+import { sortHand, type ScreenPoint } from '@/lib/table-presentation';
+import { useDrawAnimations } from '@/lib/useDrawAnimations';
 export function GameTable() {
   const { room, connected, leave } = useRoom();
   const me = useApp((s) => s.session?.user.id);
   const navigate = useNavigate();
   const [selected, setSelected] = useState<string | null>(null);
   const [wild, setWild] = useState<Card | null>(null);
+  const [wildOrigin, setWildOrigin] = useState<ScreenPoint | undefined>();
+  const [dragCard, setDragCard] = useState<{ card: Card; point: ScreenPoint } | null>(null);
   const [panel, setPanel] = useState<'logs' | 'chat' | null>(null);
   const [now, setNow] = useState(Date.now());
   const [busy, setBusy] = useState(false);
@@ -50,6 +59,16 @@ export function GameTable() {
   } | null>(null);
   const [dismissedWinner, setDismissedWinner] = useState<string | null>(null);
   const reduced = useReducedMotion() || localStorage.getItem('playroom-motion') === 'off';
+  const draws = useDrawAnimations(room, me, connected, Boolean(reduced));
+  const soundTracker = useRef(new GameAudioTracker());
+  useEffect(() => {
+    const cues = soundTracker.current.update(room, connected && !document.hidden, me);
+    for (const cue of cues) audioEngine.effect(cue.effect, cue.delay);
+  }, [room, connected, me]);
+  useEffect(() => {
+    const cues = soundTracker.current.countdown(room, now, connected && !document.hidden);
+    for (const cue of cues) audioEngine.effect(cue.effect, cue.delay);
+  }, [room, connected, now]);
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(t);
@@ -80,24 +99,27 @@ export function GameTable() {
   const winner = room.players.find((p) => p.id === game.winnerId);
   const declared = game.unoDeclared?.playerId === me && game.unoDeclared?.turnNumber === game.turnNumber;
   const selectedCard = game.hand.find((c) => c.id === selected);
-  async function action(a: UnoAction) {
+  async function action(a: UnoAction, origin?: ScreenPoint) {
     if (!room || busy) return;
     const played = a.type === 'play' ? game?.hand.find((c) => c.id === a.cardId) : undefined;
     const from =
       a.type === 'play'
         ? document.querySelector(`.hand-slot[data-card-id="${a.cardId}"] button`)?.getBoundingClientRect()
         : undefined;
-    const to = (
-      document.querySelector(`.seat-play-position[data-player-id="${me}"]`) ??
-      document.querySelector('.discard-card')
-    )?.getBoundingClientRect();
+    const to = document.querySelector('[data-discard-target]')?.getBoundingClientRect();
     setBusy(true);
     await perform(async () => {
       await request((ack) =>
         socket.emit('game:action', { roomId: room.id, action: a, revision: room.revision }, ack),
       );
       if (played && from && to && !reduced)
-        setFlight({ card: played, fromX: from.left, fromY: from.top, toX: to.left, toY: to.top });
+        setFlight({
+          card: played,
+          fromX: origin ? origin.x - 38 : from.left,
+          fromY: origin ? origin.y - 65 : from.top,
+          toX: to.left,
+          toY: to.top,
+        });
       if (a.type !== 'uno') {
         setSelected(null);
         setWild(null);
@@ -105,15 +127,20 @@ export function GameTable() {
     });
     setBusy(false);
   }
-  function play(card: Card) {
+  function play(card: Card, origin?: ScreenPoint) {
     if (!myTurn || !playable.has(card.id) || busy) return;
     if (card.color === 'wild') {
       setWild(card);
+      setWildOrigin(origin);
       return;
     }
-    void action({ type: 'play', cardId: card.id });
+    void action({ type: 'play', cardId: card.id }, origin);
   }
-  const canAct = connected && !busy;
+  const canAct = connected && !busy && !(me && draws.pendingDraws[me]);
+  const ownPlayer = room.players.find((p) => p.id === me);
+  const blocked = (game.blockedPlayers ?? []).includes(me ?? '');
+  const hand = sortHand(game.hand);
+  const seconds = Math.min(45, Math.max(0, Math.ceil((game.turnDeadline - now) / 1000)));
   return (
     <>
       <div className="game-screen">
@@ -134,6 +161,7 @@ export function GameTable() {
             </span>
           </div>
           <div className="table-toolbar-actions">
+            <AudioButton />
             <Button
               size="sm"
               variant="ghost"
@@ -193,41 +221,76 @@ export function GameTable() {
             )}
           </div>
         )}
-        <UnoArena room={room} me={me} now={now} reduced={Boolean(reduced)}>
+        <UnoArena room={room} me={me} now={now} reduced={Boolean(reduced)} pendingDraws={draws.pendingDraws}>
           {isPlayer && (
             <section className="hand-panel">
-              <div className="hand-heading">
-                <span>
-                  <Layers3 size={14} />
-                  你的手牌 · {game.hand.length} 张
-                </span>
-                <small>点选出牌 · 向上拖动出牌</small>
-              </div>
-              <div className="hand-cards">
-                {game.hand.map((c, i) => (
-                  <motion.div
-                    key={c.id}
-                    data-card-id={c.id}
-                    className={`hand-slot ${selected === c.id ? 'selected' : ''}`}
-                    initial={reduced ? false : { opacity: 0, y: 80, rotateY: 180 }}
-                    animate={{
-                      opacity: 1,
-                      y: Math.min(8, Math.abs(i - (game.hand.length - 1) / 2) * 1.5),
-                      rotate: Math.max(-9, Math.min(9, (i - (game.hand.length - 1) / 2) * 2)),
-                      rotateY: 0,
-                    }}
-                    transition={{ duration: 0.4, delay: game.turnNumber === 0 ? i * 0.06 : 0 }}
+              <div className="hand-main">
+                {ownPlayer && (
+                  <div
+                    className="table-position position-bottom own-hand-position"
+                    data-player-id={me}
+                    data-seat-position="bottom"
                   >
-                    <PlayingCard
-                      card={c}
-                      selected={selected === c.id}
-                      disabled={!myTurn || !playable.has(c.id) || !canAct}
-                      draggable
-                      onClick={() => setSelected(selected === c.id ? null : c.id)}
-                      onPlay={() => play(c)}
+                    <PlayerSeat
+                      player={ownPlayer}
+                      active={Boolean(myTurn)}
+                      blocked={blocked}
+                      seconds={seconds}
+                      own
                     />
-                  </motion.div>
-                ))}
+                    <BackStack
+                      count={Math.max(0, game.hand.length - (draws.pendingDraws[me!] ?? 0))}
+                      blocked={blocked}
+                    />
+                  </div>
+                )}
+                <div className="hand-content">
+                  <div className="hand-heading">
+                    <span>
+                      <Layers3 size={14} />
+                      你的手牌 · {game.hand.length} 张
+                    </span>
+                    <small>点选出牌 · 向上拖动出牌</small>
+                  </div>
+                  <div
+                    className={`hand-cards ${blocked ? 'blocked-hand' : ''}`}
+                    data-hand-target={me}
+                    style={{ '--hand-size': hand.length } as React.CSSProperties}
+                  >
+                    {hand.map((c, i) => (
+                      <motion.div
+                        key={c.id}
+                        data-card-id={c.id}
+                        data-card-color={c.color}
+                        data-incoming={draws.incoming.has(c.id) ? 'true' : undefined}
+                        className={`hand-slot ${selected === c.id ? 'selected' : ''}`}
+                        initial={reduced ? false : { opacity: 0, y: 80, rotateY: 180 }}
+                        animate={{
+                          opacity: draws.incoming.has(c.id) ? 0 : 1,
+                          y: Math.min(8, Math.abs(i - (game.hand.length - 1) / 2) * 1.5),
+                          rotate: Math.max(-9, Math.min(9, (i - (game.hand.length - 1) / 2) * 2)),
+                          rotateY: draws.incoming.has(c.id) ? 180 : 0,
+                        }}
+                        transition={{ duration: 0.4, delay: game.turnNumber === 0 ? i * 0.06 : 0 }}
+                      >
+                        <PlayingCard
+                          card={c}
+                          selected={selected === c.id}
+                          disabled={!myTurn || !playable.has(c.id) || !canAct || draws.incoming.has(c.id)}
+                          draggable
+                          onClick={() => setSelected(selected === c.id ? null : c.id)}
+                          onPlay={(point) => play(c, point)}
+                          onDragCard={(point) => setDragCard(point ? { card: c, point } : null)}
+                        />
+                      </motion.div>
+                    ))}
+                  </div>
+                  {blocked && (
+                    <div className="skip-hand-overlay">
+                      <BanMark label="你的手牌区被禁止，等待下一次回合" />
+                    </div>
+                  )}
+                </div>
               </div>
               <div className="hand-actions">
                 <Button
@@ -304,6 +367,8 @@ export function GameTable() {
           )}
         </DialogContent>
       </Dialog>
+      <DrawFlights flights={draws.flights} complete={draws.complete} />
+      {dragCard && <DraggedCard card={dragCard.card} point={dragCard.point} />}
       {flight && (
         <motion.div
           key={flight.card.id}
@@ -345,7 +410,9 @@ export function GameTable() {
                 key={c}
                 style={{ background: cardColors[c] }}
                 disabled={busy}
-                onClick={() => wild && void action({ type: 'play', cardId: wild.id, color: c as Color })}
+                onClick={() =>
+                  wild && void action({ type: 'play', cardId: wild.id, color: c as Color }, wildOrigin)
+                }
               >
                 {colorNames[c]}
               </button>

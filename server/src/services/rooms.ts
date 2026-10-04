@@ -22,7 +22,7 @@ import {
 } from './database.js';
 import type { RoomStore, StoredRoom } from './store.js';
 export type GameServer = Server<ClientEvents, ServerEvents, Record<string, never>, { user: User }>;
-const aiDelay = () => 500 + randomInt(901);
+const aiDelay = () => 2000 + randomInt(1001);
 export class RoomService {
   constructor(
     readonly store: RoomStore,

@@ -35,6 +35,8 @@ export interface UnoState {
   winnerId: string | null;
   drawnCardId: string | null;
   logs: GameLog[];
+  logSequence?: number;
+  blockedPlayers?: string[];
   turnDeadline: number;
   turnNumber: number;
 }
@@ -43,6 +45,8 @@ export interface UnoView {
   hand: Card[];
   handCounts: Record<string, number>;
   topCard: Card;
+  discardPile: Card[];
+  blockedPlayers: string[];
   lastPlays: Record<string, PublicPlay>;
   unoDeclared: UnoDeclaration | null;
   deckCount: number;
@@ -85,6 +89,7 @@ function buildDeck(): Card[] {
   return shuffle(deck);
 }
 function drawCards(state: UnoState, player: string, n: number) {
+  const before = state.hands[player].length;
   for (let i = 0; i < n; i++) {
     if (!state.deck.length && state.discard.length > 1) {
       const top = state.discard.pop()!;
@@ -94,9 +99,11 @@ function drawCards(state: UnoState, player: string, n: number) {
     const card = state.deck.pop();
     if (card) state.hands[player].push(card);
   }
+  return state.hands[player].length - before;
 }
-function log(state: UnoState, text: string) {
-  state.logs.push({ id: `${state.turnNumber}-${state.logs.length}`, text });
+function log(state: UnoState, text: string, event?: GameLog['event']) {
+  state.logSequence = (state.logSequence ?? state.logs.length) + 1;
+  state.logs.push({ id: `${state.turnNumber}-${state.logSequence}`, text, ...(event ? { event } : {}) });
   state.logs = state.logs.slice(-60);
 }
 function createState(players: string[]): UnoState {
@@ -120,6 +127,8 @@ function createState(players: string[]): UnoState {
     winnerId: null,
     drawnCardId: null,
     logs: [{ id: 'start', text: '每人 7 张手牌，牌局开始！' }],
+    logSequence: 0,
+    blockedPlayers: [],
     turnDeadline: Date.now() + 45000,
     turnNumber: 0,
   };
@@ -130,6 +139,8 @@ function getView(s: UnoState, playerId: string | null): UnoView {
     hand: playerId ? structuredClone(s.hands[playerId] ?? []) : [],
     handCounts: Object.fromEntries(s.players.map((p) => [p, s.hands[p].length])),
     topCard: { ...s.discard[s.discard.length - 1] },
+    discardPile: structuredClone(s.discard.slice(-7)),
+    blockedPlayers: [...(s.blockedPlayers ?? [])],
     // Public history only; no opponent hands or deck information is exposed.
     lastPlays: structuredClone(
       Object.fromEntries(
@@ -177,6 +188,9 @@ function advance(s: UnoState, steps = 1) {
   s.unoDeclared = null;
   s.turnNumber++;
   s.turnDeadline = Date.now() + 45000;
+  s.blockedPlayers = s.winnerId
+    ? []
+    : (s.blockedPlayers ?? []).filter((id) => id !== s.players[s.currentIndex]);
 }
 function applyAction(input: UnoState, playerId: string, action: UnoAction): UnoState {
   const legal = getLegalActions(getView(input, playerId), playerId);
@@ -192,7 +206,7 @@ function applyAction(input: UnoState, playerId: string, action: UnoAction): UnoS
   const s = structuredClone(input);
   if (action.type === 'uno') {
     s.unoDeclared = { playerId, turnNumber: s.turnNumber };
-    log(s, 'UNO！已声明，将打出倒数第二张牌。');
+    log(s, 'UNO！已声明，将打出倒数第二张牌。', { type: 'uno', playerId });
     return s;
   }
   if (action.type === 'draw') {
@@ -200,7 +214,7 @@ function applyAction(input: UnoState, playerId: string, action: UnoAction): UnoS
     const before = s.hands[playerId].length;
     drawCards(s, playerId, 1);
     const drawn = s.hands[playerId].at(-1);
-    log(s, '当前玩家摸了一张牌');
+    log(s, '当前玩家摸了一张牌', { type: 'draw', playerId, count: s.hands[playerId].length - before });
     if (s.hands[playerId].length > before && drawn) {
       s.drawnCardId = drawn.id;
       if (getLegalActions(getView(s, playerId), playerId).some((a) => a.type === 'play')) {
@@ -212,7 +226,7 @@ function applyAction(input: UnoState, playerId: string, action: UnoAction): UnoS
     return s;
   }
   if (action.type === 'pass') {
-    log(s, '当前玩家结束回合');
+    log(s, '当前玩家结束回合', { type: 'pass', playerId });
     advance(s);
     return s;
   }
@@ -227,31 +241,45 @@ function applyAction(input: UnoState, playerId: string, action: UnoAction): UnoS
       .sort((a, b) => b[1].turnNumber - a[1].turnNumber)
       .slice(0, 2),
   );
-  log(s, `打出 ${colorNames[s.color]} ${cardLabel(card)}`);
+  const calledUno =
+    s.hands[playerId].length === 1 &&
+    Boolean(
+      action.uno || (s.unoDeclared?.playerId === playerId && s.unoDeclared.turnNumber === s.turnNumber),
+    );
+  log(s, `打出 ${colorNames[s.color]} ${cardLabel(card)}`, {
+    type: 'play',
+    playerId,
+    value: card.value,
+    ...(calledUno ? { uno: true } : {}),
+  });
   let steps = 1;
   if (card.value === 'reverse') {
     s.direction = s.direction === 1 ? -1 : 1;
     if (s.players.length === 2) steps = 2;
   }
-  if (card.value === 'skip') steps = 2;
+  if (card.value === 'skip') {
+    steps = 2;
+    const skipped = s.players[(s.currentIndex + s.direction + s.players.length) % s.players.length];
+    s.blockedPlayers = [...new Set([...(s.blockedPlayers ?? []), skipped])];
+  }
   if (card.value === 'draw2' || card.value === 'wild4') {
     const next = (s.currentIndex + s.direction + s.players.length) % s.players.length;
     const count = card.value === 'draw2' ? 2 : 4;
-    drawCards(s, s.players[next], count);
+    const drawn = drawCards(s, s.players[next], count);
     steps = 2;
-    log(s, `下一位玩家摸 ${count} 张并跳过回合`);
+    log(s, `下一位玩家摸 ${count} 张并跳过回合`, { type: 'draw', playerId: s.players[next], count: drawn });
   }
   if (s.hands[playerId].length === 1) {
     if (action.uno || (s.unoDeclared?.playerId === playerId && s.unoDeclared.turnNumber === s.turnNumber))
       log(s, 'UNO！只剩最后一张！');
     else {
-      drawCards(s, playerId, 2);
-      log(s, '忘记喊 UNO，罚摸 2 张');
+      const drawn = drawCards(s, playerId, 2);
+      log(s, '忘记喊 UNO，罚摸 2 张', { type: 'penalty', playerId, count: drawn });
     }
   }
   if (s.hands[playerId].length === 0) {
     s.winnerId = playerId;
-    log(s, '手牌已清空，牌局结束！');
+    log(s, '手牌已清空，牌局结束！', { type: 'win', playerId });
   }
   advance(s, steps);
   return s;

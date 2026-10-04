@@ -39,9 +39,18 @@ try {
   await page.getByRole('heading', { name: '我的游乐场', exact: true }).waitFor();
   await page.goto(`http://localhost:${port}/settings`);
   await page.getByRole('heading', { name: '按你的方式，玩得尽兴' }).waitFor();
+  const voiceResponse = page.waitForResponse((response) => response.url().endsWith('/audio/uno.wav'));
+  await page.locator('.audio-status').getByRole('button', { name: '开启声音' }).click();
+  await page.locator('.audio-status[data-audio-status="ready"]').waitFor();
+  const response = await voiceResponse;
+  assert.equal(response.status(), 200);
+  const wave = await response.body();
+  assert.equal(wave.subarray(0, 4).toString(), 'RIFF');
+  assert.equal(wave.subarray(8, 12).toString(), 'WAVE');
+  await page.getByRole('button', { name: '试听 UNO 语音' }).click();
   assert.deepEqual(errors, []);
   console.log(
-    'PASS: compiled Express serves SPA, assets, deep routes and same-origin Socket.IO; zero browser errors.',
+    'PASS: compiled Express serves SPA, assets, deep routes, same-origin Socket.IO and local UNO WAV; audio unlocks; zero browser errors.',
   );
 } finally {
   await browser?.close();
