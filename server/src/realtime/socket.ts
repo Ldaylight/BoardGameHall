@@ -8,6 +8,13 @@ const room = z.object({ roomId: id });
 const action = z.discriminatedUnion('type', [
   z
     .object({
+      type: z.literal('move'),
+      from: z.object({ x: z.number().int().min(0).max(8), y: z.number().int().min(0).max(9) }).strict(),
+      to: z.object({ x: z.number().int().min(0).max(8), y: z.number().int().min(0).max(9) }).strict(),
+    })
+    .strict(),
+  z
+    .object({
       type: z.literal('play'),
       cardId: z.string().min(1).max(20),
       color: z.enum(['red', 'yellow', 'green', 'blue']).optional(),
@@ -76,6 +83,15 @@ export function registerSockets(io: GameServer, rooms: RoomService) {
               allowAI: z.boolean(),
               allowSpectators: z.boolean(),
               difficulty,
+              xiangqi: z
+                .object({
+                  mode: z.enum(['standard', 'puzzle']).optional(),
+                  puzzleId: z.string().min(1).max(40).optional(),
+                  turnSeconds: z.number().int().min(15).max(180).optional(),
+                  timeoutLoss: z.boolean().optional(),
+                })
+                .strict()
+                .optional(),
               gomoku: z
                 .object({
                   blackForbidden: z.boolean().optional(),

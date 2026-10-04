@@ -5,7 +5,7 @@ import { io, type Socket } from 'socket.io-client';
 import { PrismaClient } from '@prisma/client';
 import type { ClientEvents, Result, RoomView, ServerEvents, Session, ProfileData } from '../shared/types.js';
 import { uno } from '../shared/games/uno/index.js';
-import { unoView } from '../shared/games/views.js';
+import { unoView, xiangqiView } from '../shared/games/views.js';
 const port = 3099;
 const base = `http://localhost:${port}`;
 const server = spawn(process.execPath, ['--import', 'tsx', 'server/src/index.ts'], {
@@ -247,6 +247,120 @@ try {
   await request((ack) => sa.emit('room:rematch', { roomId: gr.id }, ack));
   console.log(
     'PASS: Gomoku MySQL win + 225-move draw, nullable winner, complete public replay, per-game ranking, combined profile, exactly-once rewards, rematch.',
+  );
+  await request((ack) => sa.emit('room:leave', { roomId: gr.id }, ack));
+  await request((ack) => sb.emit('room:leave', { roomId: gr.id }, ack));
+  const xr = await request<RoomView>((ack) =>
+    sa.emit(
+      'room:create',
+      {
+        gameId: 'xiangqi',
+        name: 'MySQL 象棋验收',
+        maxPlayers: 2,
+        allowAI: true,
+        allowSpectators: true,
+        difficulty: 'hard',
+      },
+      ack,
+    ),
+  );
+  roomIds.push(xr.id);
+  await request((ack) => sb.emit('room:join', { code: xr.code }, ack));
+  await request((ack) => sa.emit('room:ready', { roomId: xr.id, ready: true }, ack));
+  await request((ack) => sb.emit('room:ready', { roomId: xr.id, ready: true }, ack));
+  await request((ack) => sa.emit('room:start', { roomId: xr.id }, ack));
+  const syncX = () => request<RoomView>((ack) => sa.emit('room:sync', { roomId: xr.id }, ack));
+  let xv = await syncX();
+  await request((ack) =>
+    sa.emit(
+      'game:action',
+      {
+        roomId: xr.id,
+        revision: xv.revision,
+        action: { type: 'move', from: { x: 1, y: 7 }, to: { x: 1, y: 0 } },
+      },
+      ack,
+    ),
+  );
+  xv = await syncX();
+  assert.equal(xiangqiView(xv).captured[0].kind, 'horse');
+  assert.equal(await db.match.count({ where: { roomId: xr.id } }), 0);
+  await request((ack) => sb.emit('room:chat', { roomId: xr.id, text: '象棋炮击吃马 ♟' }, ack));
+  xv = await syncX();
+  await request((ack) =>
+    sb.emit('game:action', { roomId: xr.id, revision: xv.revision, action: { type: 'resign' } }, ack),
+  );
+  xv = await syncX();
+  assert.equal(xv.resultSaved, true);
+  const xrecord = await db.match.findUniqueOrThrow({
+    where: { id: xv.matchId! },
+    include: { players: true },
+  });
+  assert.equal(xrecord.gameId, 'xiangqi');
+  assert.equal(xrecord.winnerId, a.user.id);
+  assert.equal(
+    (xrecord.publicResult as { moves: { captured: { kind: string } }[] }).moves[0].captured.kind,
+    'horse',
+  );
+  assert.equal(xrecord.players.find((p) => p.playerId === a.user.id)!.coinsDelta, 100);
+  await syncX();
+  assert.equal(await db.match.count({ where: { roomId: xr.id } }), 1);
+  assert.equal(
+    (
+      await db.ranking.findUniqueOrThrow({
+        where: { userId_gameId: { userId: a.user.id, gameId: 'xiangqi' } },
+      })
+    ).wins,
+    1,
+  );
+  const beforePuzzle = await api<ProfileData>('/profile', 'GET', undefined, a.token);
+  const puzzle = await request<RoomView>((ack) =>
+    sa.emit(
+      'room:create',
+      {
+        gameId: 'xiangqi',
+        name: 'MySQL 重炮残局',
+        maxPlayers: 2,
+        allowAI: true,
+        allowSpectators: true,
+        difficulty: 'hard',
+        xiangqi: { mode: 'puzzle', puzzleId: 'double-cannon' },
+      },
+      ack,
+    ),
+  );
+  roomIds.push(puzzle.id);
+  await request((ack) => sa.emit('room:ai', { roomId: puzzle.id, difficulty: 'hard' }, ack));
+  await request((ack) => sa.emit('room:ready', { roomId: puzzle.id, ready: true }, ack));
+  await request((ack) => sa.emit('room:start', { roomId: puzzle.id }, ack));
+  const pv = await request<RoomView>((ack) => sa.emit('room:sync', { roomId: puzzle.id }, ack));
+  await request((ack) =>
+    sa.emit(
+      'game:action',
+      {
+        roomId: puzzle.id,
+        revision: pv.revision,
+        action: { type: 'move', from: { x: 3, y: 2 }, to: { x: 4, y: 2 } },
+      },
+      ack,
+    ),
+  );
+  const pend = await request<RoomView>((ack) => sa.emit('room:sync', { roomId: puzzle.id }, ack));
+  assert.equal(pend.resultSaved, true);
+  const pr = await db.match.findUniqueOrThrow({ where: { id: pend.matchId! }, include: { players: true } });
+  assert.equal((pr.publicResult as { reason: string }).reason, 'checkmate');
+  assert.equal(
+    pr.players.every((p) => p.coinsDelta === 0 && p.score === 0),
+    true,
+  );
+  const afterPuzzle = await api<ProfileData>('/profile', 'GET', undefined, a.token);
+  assert.equal(afterPuzzle.user.coins, beforePuzzle.user.coins);
+  assert.equal(afterPuzzle.user.level, beforePuzzle.user.level);
+  assert.equal(afterPuzzle.matches.filter((m) => m.gameName === '中国象棋').length, 2);
+  assert.equal(afterPuzzle.matches.find((m) => m.id === pend.matchId)?.training, true);
+  assert.deepEqual(afterPuzzle.rankings, beforePuzzle.rankings);
+  console.log(
+    'PASS: Xiangqi MySQL capture replay, resignation, Unicode chat, exactly-once ranking/rewards; endgame checkmate persisted with zero practice rewards.',
   );
   console.log(
     `PASS: MySQL lifecycle, transactions, Unicode chat, friendship, 2-human complete match (${steps} actions), private spectator view, reconnect, exactly-once rewards and rematch.`,

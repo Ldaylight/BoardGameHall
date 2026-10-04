@@ -122,7 +122,7 @@ export function Profile() {
                     {m.draw ? '平局' : m.won ? '胜利' : '参与'}
                   </span>
                   <span>
-                    {m.won ? '+100 金币' : '+10 金币'} · {m.score} 积分
+                    {m.training ? '残局练习' : `+${m.coinsDelta ?? (m.won ? 100 : 10)} 金币`} · {m.score} 积分
                   </span>
                 </div>
               ))

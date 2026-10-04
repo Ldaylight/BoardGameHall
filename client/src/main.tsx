@@ -6,6 +6,7 @@ import { Lobby } from '@/pages/Lobby';
 import { Room } from '@/pages/Room';
 import { Profile } from '@/pages/Profile';
 import { Settings } from '@/pages/Settings';
+import { XiangqiEndgames } from '@/pages/XiangqiEndgames';
 import { connectSession } from '@/lib/api';
 import { useApp } from '@/stores/app';
 import { MotionConfig } from 'framer-motion';
@@ -52,6 +53,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
             />
             <Route path="profile" element={<Profile />} />
             <Route path="settings" element={<Settings />} />
+            <Route path="xiangqi/endgames" element={<XiangqiEndgames />} />
             <Route path="*" element={<Navigate to="/lobby" replace />} />
           </Route>
         </Routes>

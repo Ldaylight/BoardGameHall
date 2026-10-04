@@ -28,6 +28,8 @@ import { Button } from '@/components/ui/button';
 import { GameArt } from '@/components/GameArt';
 import { CreateRoomDialog, JoinRoomDialog } from '@/components/RoomDialogs';
 import { useApp } from '@/stores/app';
+import { XiangqiModeDialog } from '@/components/XiangqiModeDialog';
+import '../xiangqi.css';
 import { perform, request, socket } from '@/lib/api';
 export function Lobby() {
   const [params, setParams] = useSearchParams();
@@ -40,6 +42,7 @@ export function Lobby() {
   const [sort, setSort] = useState('recommended');
   const [create, setCreate] = useState(false);
   const [join, setJoin] = useState(false);
+  const [xiangqiMode, setXiangqiMode] = useState(false);
   const [gameId, setGameId] = useState<GameId>('uno');
   const [filterOpen, setFilterOpen] = useState(false);
   const [slot, setSlot] = useState<HTMLElement | null>(null);
@@ -79,7 +82,8 @@ export function Lobby() {
     );
   function start(id: GameId) {
     setGameId(id);
-    setCreate(true);
+    if (id === 'xiangqi') setXiangqiMode(true);
+    else setCreate(true);
   }
   const filters = (
     <div className="filters">
@@ -427,6 +431,11 @@ export function Lobby() {
         initialGame={gameId}
       />
       <JoinRoomDialog open={join} onOpenChange={setJoin} />
+      <XiangqiModeDialog
+        open={xiangqiMode}
+        onOpenChange={setXiangqiMode}
+        onStandard={() => setCreate(true)}
+      />
     </>
   );
 }

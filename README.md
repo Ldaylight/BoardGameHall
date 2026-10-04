@@ -2,11 +2,13 @@
 
 一个可运行的多人 Web 桌游大厅。React 18 / TypeScript / Vite / Tailwind CSS / shadcn 风格本地 Radix UI 组件 / Zustand / React Router / Framer Motion；Express / Socket.IO；MySQL 8.0 / Prisma 6；可选 Redis 房间状态与 Socket.IO adapter。
 
-**UNO 和五子棋现已开放。** 五子棋复用大厅、用户、房间、聊天、观战、重连与结算系统；中国象棋、斗地主、德州扑克仍为独立入口，标记「即将上线」。默认体验模式也使用真正的 Socket.IO 服务端权威房间；只有持久化层在内存中。游戏目录使用静态 mock 数据先跑通 UI。
+**UNO、五子棋和中国象棋现已开放。** 三款游戏复用大厅、用户、房间、聊天、观战、重连与结算系统；中国象棋包含标准对局和经典杀法教学残局。斗地主、德州扑克仍为独立入口，标记「即将上线」。默认体验模式也使用真正的 Socket.IO 服务端权威房间；只有持久化层在内存中。游戏目录使用静态 mock 数据先跑通 UI。
 
 ## 电脑重启后，如何重新打开项目
 
 本机已经安装依赖、生成 Prisma 客户端、迁移并初始化数据库，包括五子棋平局迁移。普通重启后无需重复安装、迁移或种子初始化，保留已有 `.env`。其他已部署环境更新本次代码后，需要先执行一次 `npm run db:generate` 和 `npm run db:migrate`。
+
+本次象棋更新无需新增依赖或数据库迁移。已有部署更新代码后运行一次 `npm run db:seed`，将象棋目录标记为开放；生产部署再执行 `npm run build`。本机已执行种子更新。
 
 在 PowerShell 中运行：
 
@@ -134,6 +136,7 @@ $env:PORT=3002; npm run dev:server
 | `/game/:roomId` | 一屏沉浸牌桌、四向玩家席位、最近两位玩家出牌、席位倒计时、牌堆/匹配提示、扇形手牌、选择/拖拽出牌、独立 UNO 按钮、摸牌高亮、万能牌选色、动态/聊天抽屉、结果和再来一局 |
 | `/profile` | 玩家 ID、金币/等级、最近 20 局、排行榜、复制好友 ID |
 | `/settings` | 八套颜色主题（含三套渐变）、修改昵称、减少动画、运行模式与连接说明 |
+| `/xiangqi/endgames` | 五个经典杀法教学残局、棋盘预览、AI 难度、通关进度与一键挑战 |
 
 好友列表持久化为单向关注关系，可用玩家 ID 添加。好友房间邀请通过复制可直接打开的链接完成，无伪造「发送成功」。社交抽屉默认收起；移动端导航和筛选折叠。聊天 React 文本渲染，不解释 HTML。
 
@@ -155,13 +158,39 @@ UNO 对局去除大厅页眉、页脚、面包屑和营销标题，牌桌占满�
 
 实现标准 108 张牌、7 张起手、颜色/数值匹配、跳过、反转、+2、万能变色、+4（有当前色时不允许使用）、摸牌与结束回合、牌堆耗尽重洗、清空手牌获胜。已核对 [Mattel 官方 UNO 规则](https://shop.mattel.com/pages/games-uno-braille-rules) 与 [官方移动版说明](https://pre-letsplayuno.mattel163.com/news/guide/20181213/30092_732580.html)：打出倒数第二张前喊 UNO，漏喊被其他玩家抓到罚摸 **2 张**。本大厅沿用该罚牌数量，但**自动判罚漏喊**，不实现抓漏喊的时限窗口；不叠加罚牌，不实现 +4 挑战或抢喊 UNO。两人反转相当于跳过。摸到可出的牌时只可打出刚摸到的一张或 pass。回合 45 秒，超时中等策略代打；断线后临时代打，重连恢复自己手牌；主动离开后保留该手牌由 AI 完成本局，并让出房主身份。
 
-`GameDefinition<State, Action, View, Options>`：`id/name/minPlayers/maxPlayers/createState/applyAction/getLegalActions/aiMove/getView`；第四个可选泛型允许每款游戏定义自己的规则配置。UNO 和五子棋独立实现，服务端统一分发动作，客户端按游戏加载桌面。
+`GameDefinition<State, Action, View, Options>`：`id/name/minPlayers/maxPlayers/createState/applyAction/getLegalActions/aiMove/getView`；第四个可选泛型允许每款游戏定义自己的规则配置。UNO、五子棋和象棋独立实现，服务端统一分发动作，客户端按游戏加载桌面。
 
 UNO AI 每次动作由服务端设置 2000–3000ms 思考时间，包括 AI 摸牌后继续出牌，以及断线玩家的 AI 接管；调度器在时间到达后执行。简单随机合法动作；中等根据手牌颜色数量、效果牌和下一位公共手牌数量评分；UNO 困难档当前回退中等策略。AI 函数只接受 `UnoView`，没有牌堆顺序和对手手牌。观战者手牌数组为空。
 
 卡牌 2.5:3.5，扇形排列，悬停上浮 8px + rotateX/rotateY，选中放大 1.15 倍；普通灰边、稀有蓝边、史诗紫色粒子、传说金色呼吸光；发牌翻转与出牌拖尾。封面为本地 CSS/SVG 图形，无外部图片或字体依赖。支持系统减少动画偏好和设置页面动画开关。
 
 ## 6. 开发顺序与目录
+
+### 中国象棋模块
+
+大厅点击「中国象棋」→ 选择「标准对局」或「经典残局」。标准对局复用原有创建房间、邀请、准备、AI 补位与开始流程，固定两人，座位 1 执红先手、座位 2 执黑后手。创建时可设置 30–180 秒每步时限及超时判负；关闭超时判负时由 AI 临时代下。黑方棋盘自动旋转，使自己的棋子在下方，棋子文字仍保持正向。点击己方棋子，再点击高亮合法落点；服务器按认证身份、回合和 revision 校验，拒绝替对手走棋、抢回合、越界、友军吃子和不合法应将。
+
+规则参考 [Xiangqi.com 棋子走法](https://www.xiangqi.com/help/pieces-and-moves) 和 [世界象棋联合会规则](https://www.wxf-xiangqi.org/images/wxf-rules/2018_World_XiangQi_Rules_English2018.pdf)：9×10 交叉点棋盘、32 枚棋子；将帅九宫直走一步，仕士九宫斜走一步；相象走田、塞眼不可走且不能过河；马走日、蹩腿不可走；车沿直线无阻行走；炮不吃子时无阻，吃子时必须恰好隔一枚炮架；兵卒向前一步，过河后可以横走，不能后退。被将军必须应将，不能将帅照面。将死和困毙均判负，可主动认输。
+
+大厅采用休闲重复判罚：同一棋盘且同一行动方出现三次，比较两轮循环，单方持续将军判负；单方持续追捉同一无保护大子判负（排除兵卒/将帅追捉、互吃与可回吃的交换），其余重复判和；连续 120 步无吃子且无兵卒向前则判和。**这不是完整 WXF 竞赛裁判**，复杂长捉、将捉交替及兵卒/受保护子特例不完整实现，详见 [完整 WXF 裁判规则实现研究](https://arxiv.org/html/2412.17334v1)。
+
+经典残局提供重炮杀、马后炮、双车错、白脸将和二鬼拍门，每局给出主题、难度、棋盘预览和可展开提示。局面是参考 [经典将杀教程](https://www.xiangqi.com/articles/checkmate-strategies) 制作的原创教学安排，**不是古谱原局抄录**。四局一步杀，双车错两步连杀；全部解法逐步通过合法动作验证，双车错的黑方应将只有一个合法回复。玩家执红、AI 执黑；可以偏离参考答案自由走棋，AI 按公开局面防守。结果保存后可「重试残局」并在等待页准备开始，也可选择更多残局；通关进度按用户保存在本浏览器。残局棋谱写入 Match / MatchPlayer，但不增加金币、等级和 Ranking，个人资料显示「残局练习」。
+
+象棋 AI 只读取公开棋盘：简单随机合法着法；中等结合子力、兵卒推进、中心位置、对方吃子威胁和一步将死进行评分；困难使用迭代加深 Minimax + Alpha-Beta（2–4 层、根 20/后续 10 个候选、8000 节点与约 300ms 搜索预算），一步将死直接优先执行。服务端等待 500–1500ms 后在工作线程计算，产出标准 `{ type:'move', from:{x,y}, to:{x,y} }`，与真人的 `game:action` 共用验证、同步和结算路径。刷新恢复同一公开棋盘，观战者不能走棋。
+
+棋盘为深色玻璃、微光网格与楚河汉界，棋子采用立体木色红方和青光黑方；选中、合法落点、上一手、被将军的将帅和当前头像均有提示。棋子平滑移动，公开服务端动作触发动画与 Web Audio 合成音效，聊天快照、刷新及重连不重播历史。桌面、手机竖屏/横屏可用，规则、动态和聊天默认折叠；沿用音乐切换、音效音量、静音和减少动画设置。音效本地生成，不依赖远程音源。
+
+| 棋子 | 移动 / 吃子效果 |
+| --- | --- |
+| 炮 | 弧线炮弹、拖尾，爆炸冲击波、低频爆破、棋面与字样碎片 |
+| 车 | 疾行拖尾、金色交叉斩击，棋面分成两半、金属切击 |
+| 马 | 日字路径、蹄迹、跃马冲击与连续马蹄声 |
+| 相 / 象 | 玉色方形震荡、碎片与低沉踏地声 |
+| 仕 / 士 | 斜向菱形剑光、碎片与清脆铃音 |
+| 兵 / 卒 | 突刺轨迹、碎片与短促破阵声 |
+| 帅 / 将 | 王令印记、金色环形威慑、碎片与低音和弦 |
+
+象棋实时状态仍由原内存 / Redis RoomStore 保存，走棋不逐步写 MySQL。结束时复用原事务保存棋谱（含棋子身份、起止点、吃子、将军）、配置、结束原因、结果与标准对局奖励，无需扩展表结构。
 
 ### 五子棋模块
 
@@ -189,7 +218,7 @@ AI 使用公开 `GomokuView`：简单从所有合法空位随机选点；中等�
 client/
   src/
     components/         # Layout, GameArt, PlayingCard, Chat, RoomDialogs, ui/*
-    pages/              # Lobby, Room, GameTable(分发), UnoTable, GomokuTable, Profile, Settings
+    pages/              # Lobby, Room, GameTable(分发), UnoTable, GomokuTable, XiangqiTable, XiangqiEndgames, Profile, Settings
     stores/app.ts       # Zustand 用户、连接、房间和消息
     lib/                # api, useRoom, utils
     styles.css          # 视觉系统、卡牌动效、响应式
@@ -203,6 +232,7 @@ server/src/
     rooms.ts            # 权威房间服务、AI、隐私投影
     store.ts            # MemoryStore / RedisStore
     gomoku-ai.ts        # 开发/生产通用的 AI 工作线程
+    xiangqi-ai.ts       # 公开棋盘象棋 AI 工作线程
 shared/
   types.ts
   catalog.ts
@@ -214,7 +244,13 @@ shared/
       types.ts          # 棋盘、动作和可选规则类型
       rules.ts          # 连珠和递归禁手检测
       ai.ts             # 随机 / 启发式 / Alpha-Beta
-    xiangqi/index.ts
+    xiangqi/
+      index.ts          # 象棋 GameDefinition、动作、将死/困毙/结算
+      types.ts          # 红黑棋子、棋盘、动作与残局配置
+      rules.ts          # 七种棋子走法、将军与合法动作
+      repetition.ts     # 休闲长将/长捉及重复局面判罚
+      ai.ts             # 随机 / 评分 / 迭代 Alpha-Beta
+      endgames.ts       # 五个经典杀法教学局面与验证答案
     doudizhu/index.ts
     holdem/index.ts
 prisma/
@@ -227,6 +263,9 @@ tests/
   gomoku.test.ts
   gomoku-rooms.test.ts
   e2e/gomoku.spec.ts
+  xiangqi.test.ts
+  xiangqi-rooms.test.ts
+  e2e/xiangqi.spec.ts
   e2e/lobby.spec.ts
 ```
 

@@ -8,6 +8,13 @@ export interface AudioCue {
 export function eventCues(event: GameLog['event'], me?: string): AudioCue[] {
   if (!event) return [];
   switch (event.type) {
+    case 'xiangqi-move':
+      if (!event.piece) return [];
+      return [
+        { effect: `x-${event.piece}-move` },
+        ...(event.capture ? [{ effect: `x-${event.piece}-capture` as SoundEffect, delay: 0.38 }] : []),
+        ...(event.check ? [{ effect: 'x-check' as const, delay: 0.6 }] : []),
+      ];
     case 'place':
       return [{ effect: 'stone' }];
     case 'play': {

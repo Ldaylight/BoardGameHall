@@ -34,6 +34,26 @@ function room(): RoomView {
 }
 
 describe('audio preferences and public events', () => {
+  it('all seven Xiangqi pieces have distinct movement/capture sounds with impact and check timing', () => {
+    for (const piece of [
+      'general',
+      'advisor',
+      'elephant',
+      'horse',
+      'chariot',
+      'cannon',
+      'soldier',
+    ] as const) {
+      expect(eventCues({ type: 'xiangqi-move', playerId: 'a', piece })).toEqual([
+        { effect: `x-${piece}-move` },
+      ]);
+      expect(eventCues({ type: 'xiangqi-move', playerId: 'a', piece, capture: true, check: true })).toEqual([
+        { effect: `x-${piece}-move` },
+        { effect: `x-${piece}-capture`, delay: 0.38 },
+        { effect: 'x-check', delay: 0.6 },
+      ]);
+    }
+  });
   it('plays stone placement through public logs and keeps a full-board draw silent', () => {
     expect(eventCues({ type: 'place', playerId: 'a' }, 'a')).toEqual([{ effect: 'stone' }]);
     expect(eventCues({ type: 'draw-game', playerId: '' }, 'a')).toEqual([]);

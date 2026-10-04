@@ -39,7 +39,7 @@ export const games: GameMeta[] = [
     maxPlayers: 2,
     supportsAI: true,
     supportsMultiplayer: true,
-    available: false,
+    available: true,
     accent: '#c59a80',
     tag: '国风策略',
     description: '调兵遣将，在楚河汉界之间寻找制胜的一步。',

@@ -36,6 +36,8 @@ export function Room() {
   const me = room.players.find((p) => p.id === user?.id);
   const humansReady = room.players.filter((p) => !p.isAI).every((p) => p.ready);
   const isGomoku = room.gameId === 'gomoku';
+  const isXiangqi = room.gameId === 'xiangqi';
+  const gameName = isXiangqi ? '中国象棋' : isGomoku ? '五子棋' : 'UNO';
   const rules = { ...defaultGomokuOptions, ...room.options.gomoku };
   async function execute(task: () => Promise<unknown>) {
     setBusy(true);
@@ -47,18 +49,20 @@ export function Room() {
       <div className="breadcrumb">
         <Link to="/lobby">桌游大厅</Link>
         <ChevronRight size={13} />
-        <span>{isGomoku ? '五子棋' : 'UNO'} 房间</span>
+        <span>{gameName} 房间</span>
       </div>
       <div className="page-heading">
         <div>
           <span className="eyebrow">GOOD COMPANY, GREAT GAME</span>
           <h1>{room.name}</h1>
           <p>
-            {isGomoku
-              ? '黑白之间，落下一步好棋。座位 1 执黑先手，座位 2 执白后手。'
-              : host
-                ? '你是房主，召集伙伴开始一场好牌局。'
-                : '找个舒服的座位，准备好就出发。'}
+            {isXiangqi
+              ? '红方先手，黑方后手。邀请朋友切磋，或添加 AI 练棋。'
+              : isGomoku
+                ? '黑白之间，落下一步好棋。座位 1 执黑先手，座位 2 执白后手。'
+                : host
+                  ? '你是房主，召集伙伴开始一场好牌局。'
+                  : '找个舒服的座位，准备好就出发。'}
           </p>
         </div>
         <div className="room-head-actions">
@@ -87,7 +91,15 @@ export function Room() {
                 return p ? (
                   <div className="seat-card" key={seat}>
                     <span className="seat-number">
-                      {isGomoku ? (seat === 0 ? '● 黑棋 · 先手' : '○ 白棋 · 后手') : `SEAT 0${seat + 1}`}
+                      {isXiangqi
+                        ? seat === 0
+                          ? '红方 · 先手'
+                          : '黑方 · 后手'
+                        : isGomoku
+                          ? seat === 0
+                            ? '● 黑棋 · 先手'
+                            : '○ 白棋 · 后手'
+                          : `SEAT 0${seat + 1}`}
                     </span>
                     {p.id === room.hostId && <Crown className="seat-crown" size={16} />}
                     <Avatar name={p.name} ai={p.isAI} />
@@ -114,7 +126,7 @@ export function Room() {
                             ? '简单'
                             : p.difficulty === 'medium'
                               ? '中等'
-                              : isGomoku
+                              : isGomoku || isXiangqi
                                 ? '困难'
                                 : '困难*'}
                         </span>
@@ -173,7 +185,9 @@ export function Room() {
                 >
                   <option value="easy">AI · 简单</option>
                   <option value="medium">AI · 中等</option>
-                  <option value="hard">AI · 困难{isGomoku ? '（Alpha-Beta）' : '（中等策略）'}</option>
+                  <option value="hard">
+                    AI · 困难{isGomoku || isXiangqi ? '（Alpha-Beta）' : '（中等策略）'}
+                  </option>
                 </select>
               )}
               {me && !me.isAI && (
@@ -226,15 +240,33 @@ export function Room() {
                     : !humansReady
                       ? '等待所有真人玩家准备。AI 已经迫不及待了。'
                       : '大家都准备好了，房主可以开始！'}{' '}
-              {isGomoku ? '困难 AI 使用 4–6 层 Alpha-Beta 搜索。' : '困难 AI 当前使用中等策略。'}
+              {isXiangqi
+                ? '困难 AI 使用迭代加深 Alpha-Beta 搜索；残局可准备后重新开始。'
+                : isGomoku
+                  ? '困难 AI 使用 4–6 层 Alpha-Beta 搜索。'
+                  : '困难 AI 当前使用中等策略。'}
             </p>
           </section>
           <section className="panel rules-panel">
             <h2 className="panel-title">
               <Layers3 size={18} />
-              {isGomoku ? '五子棋' : 'UNO'} · 本大厅规则
+              {gameName} · 本大厅规则
             </h2>
-            {isGomoku ? (
+            {isXiangqi ? (
+              <>
+                <div className="rule-tags">
+                  <span>9 × 10 棋盘</span>
+                  <span>红先黑后</span>
+                  <span>{room.options.xiangqi?.mode === 'puzzle' ? '经典残局' : '标准对局'}</span>
+                  <span>{room.options.xiangqi?.turnSeconds ?? 60} 秒回合</span>
+                </div>
+                <p>
+                  将帅走九宫直线一步，仕士斜一步；相象走田不过河且不能塞眼，马走日不能蹩腿，车直行，炮吃子必须隔一枚炮架。兵卒向前一步，过河可平移，不能后退。被将军必须应将，不能将帅照面；将死和困毙均判负。三次重复同一局面及走棋方时，单方长将或持续追捉同一无保护大子判负，其余判和；60
+                  回合无吃子且无兵卒向前判和。采用休闲判罚，未覆盖竞赛长捉全部例外。AI 延迟
+                  500–1500ms，棋谱和结果保存到战绩。
+                </p>
+              </>
+            ) : isGomoku ? (
               <>
                 <div className="rule-tags">
                   <span>15 × 15 棋盘</span>

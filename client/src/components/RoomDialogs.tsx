@@ -26,11 +26,13 @@ export function CreateRoomDialog({
   const [difficulty, setDifficulty] = useState<Difficulty>('medium');
   const [busy, setBusy] = useState(false);
   const [gomoku, setGomoku] = useState<GomokuOptions>({ ...defaultGomokuOptions });
+  const [xiangqiTime, setXiangqiTime] = useState(60);
+  const [xiangqiTimeout, setXiangqiTimeout] = useState(false);
   useEffect(() => {
     if (open) setGameId(initialGame);
   }, [open, initialGame]);
   useEffect(() => {
-    if (gameId === 'gomoku') setMaxPlayers(2);
+    if (gameId === 'gomoku' || gameId === 'xiangqi') setMaxPlayers(2);
   }, [gameId]);
   const connected = useApp((s) => s.connected);
   async function create() {
@@ -42,11 +44,20 @@ export function CreateRoomDialog({
           {
             gameId,
             name,
-            maxPlayers: gameId === 'gomoku' ? 2 : maxPlayers,
+            maxPlayers: gameId !== 'uno' ? 2 : maxPlayers,
             allowAI,
             allowSpectators,
             difficulty,
             ...(gameId === 'gomoku' ? { gomoku } : {}),
+            ...(gameId === 'xiangqi'
+              ? {
+                  xiangqi: {
+                    mode: 'standard' as const,
+                    turnSeconds: xiangqiTime,
+                    timeoutLoss: xiangqiTimeout,
+                  },
+                }
+              : {}),
           },
           ack,
         ),
@@ -92,7 +103,7 @@ export function CreateRoomDialog({
             <label>
               座位数量
               <select value={maxPlayers} onChange={(e) => setMaxPlayers(Number(e.target.value))}>
-                {(gameId === 'gomoku' ? [2] : [2, 3, 4, 5, 6]).map((n) => (
+                {(gameId !== 'uno' ? [2] : [2, 3, 4, 5, 6]).map((n) => (
                   <option key={n} value={n}>
                     {n} 人
                   </option>
@@ -102,14 +113,48 @@ export function CreateRoomDialog({
             <label>
               AI 难度
               <select value={difficulty} onChange={(e) => setDifficulty(e.target.value as Difficulty)}>
-                <option value="easy">简单 · {gameId === 'gomoku' ? '随机落子' : '随机出牌'}</option>
-                <option value="medium">中等 · {gameId === 'gomoku' ? '进攻与防守' : '策略出牌'}</option>
+                <option value="easy">简单 · {gameId !== 'uno' ? '随机落子' : '随机出牌'}</option>
+                <option value="medium">中等 · {gameId !== 'uno' ? '进攻与防守' : '策略出牌'}</option>
                 <option value="hard">
-                  困难 · {gameId === 'gomoku' ? 'Alpha-Beta 搜索' : '预留（当前中等）'}
+                  困难 · {gameId !== 'uno' ? 'Alpha-Beta 搜索' : '预留（当前中等）'}
                 </option>
               </select>
             </label>
           </div>
+          {gameId === 'xiangqi' && (
+            <fieldset className="gomoku-options">
+              <legend>中国象棋 · 标准对局</legend>
+              <label>
+                每步时限
+                <select value={xiangqiTime} onChange={(e) => setXiangqiTime(Number(e.target.value))}>
+                  {[30, 60, 90, 120, 180].map((s) => (
+                    <option key={s} value={s}>
+                      {s} 秒
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="check-row">
+                <span>超时判负（关闭时 AI 代下）</span>
+                <input
+                  type="checkbox"
+                  checked={xiangqiTimeout}
+                  onChange={(e) => setXiangqiTimeout(e.target.checked)}
+                />
+              </label>
+              <p className="room-hint">红先黑后，将死和困毙均获胜。想体验经典杀法？</p>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  onOpenChange(false);
+                  navigate('/xiangqi/endgames');
+                }}
+              >
+                前往经典残局
+              </Button>
+            </fieldset>
+          )}
           {gameId === 'gomoku' && (
             <fieldset className="gomoku-options">
               <legend>五子棋规则 · 默认自由规则</legend>

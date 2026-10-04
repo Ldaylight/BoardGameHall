@@ -4,8 +4,17 @@ import { games } from '../shared/catalog.js';
 const prisma = new PrismaClient();
 try {
   for (const game of games) {
-    const data={name:game.name,minPlayers:game.minPlayers,maxPlayers:game.maxPlayers,available:game.available};
-    await prisma.game.upsert({where:{id:game.id},create:{id:game.id,...data},update:data});
+    const data = {
+      name: game.name,
+      minPlayers: game.minPlayers,
+      maxPlayers: game.maxPlayers,
+      available: game.available,
+    };
+    await prisma.game.upsert({ where: { id: game.id }, create: { id: game.id, ...data }, update: data });
   }
-  console.log('Seed complete: five catalog entries, UNO playable. No fake users or match records.');
-} finally { await prisma.$disconnect(); }
+  console.log(
+    'Seed complete: five catalog entries; UNO, Gomoku and Xiangqi playable. No fake users or match records.',
+  );
+} finally {
+  await prisma.$disconnect();
+}

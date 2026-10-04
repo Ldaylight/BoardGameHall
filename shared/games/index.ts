@@ -1,17 +1,29 @@
 import { uno } from './uno/index.js';
 import { gomoku } from './gomoku/index.js';
+import { xiangqi } from './xiangqi/index.js';
 import type { GameAction, GameState, RoomOptions } from '../types.js';
-export const playableGames = { uno, gomoku };
+export const playableGames = { uno, gomoku, xiangqi };
 export function createGame(options: RoomOptions, players: string[]): GameState {
+  if (options.gameId === 'xiangqi') return xiangqi.createState(players, options.xiangqi);
   return options.gameId === 'gomoku' ? gomoku.createState(players, options.gomoku) : uno.createState(players);
 }
 export const isGomoku = (state: GameState): state is import('./gomoku/types.js').GomokuState =>
-  'board' in state;
-export const gameFinished = (state: GameState) => !!state.winnerId || (isGomoku(state) && state.draw);
+  'kind' in state && state.kind === 'gomoku';
+export const isXiangqi = (state: GameState): state is import('./xiangqi/types.js').XiangqiState =>
+  'kind' in state && state.kind === 'xiangqi';
+export const gameFinished = (state: GameState) => !!state.winnerId || ('draw' in state && state.draw);
 export function gameView(state: GameState, playerId: string | null) {
-  return isGomoku(state) ? gomoku.getView(state, playerId) : uno.getView(state, playerId);
+  return isXiangqi(state)
+    ? xiangqi.getView(state, playerId)
+    : isGomoku(state)
+      ? gomoku.getView(state, playerId)
+      : uno.getView(state, playerId);
 }
 export function applyGameAction(state: GameState, playerId: string, action: GameAction): GameState {
+  if (isXiangqi(state)) {
+    if (!['move', 'resign'].includes(action.type)) throw new Error('中国象棋不支持此动作');
+    return xiangqi.applyAction(state, playerId, action as import('./xiangqi/types.js').XiangqiAction);
+  }
   if (isGomoku(state)) {
     if (!['place', 'resign', 'undo:request', 'undo:respond'].includes(action.type))
       throw new Error('五子棋不支持此动作');

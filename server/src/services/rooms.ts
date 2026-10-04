@@ -18,9 +18,13 @@ import {
   gameFinished,
   gameView,
   isGomoku,
+  isXiangqi,
 } from '../../../shared/games/index.js';
 import { timeout } from '../../../shared/games/gomoku/index.js';
 import { computeGomokuMove } from './gomoku-ai.js';
+import { xiangqi, xiangqiTimeout } from '../../../shared/games/xiangqi/index.js';
+import { endgames } from '../../../shared/games/xiangqi/endgames.js';
+import { computeXiangqiMove } from './xiangqi-ai.js';
 import {
   createRoomRecord,
   finishMatch,
@@ -115,10 +119,18 @@ export class RoomService {
     user = (await getUser(user.id)) ?? user;
     return this.store.lock(`user:${user.id}`, async () => {
       await this.noOtherSeat(user.id);
-      if (!['uno', 'gomoku'].includes(options.gameId)) throw new Error('该游戏尚未开放');
+      if (!['uno', 'gomoku', 'xiangqi'].includes(options.gameId)) throw new Error('该游戏尚未开放');
       if (!Number.isInteger(options.maxPlayers) || options.maxPlayers < 2 || options.maxPlayers > 6)
         throw new Error('人数必须在 2–6 之间');
       if (options.gameId === 'gomoku' && options.maxPlayers !== 2) throw new Error('五子棋必须为 2 人');
+      if (options.gameId === 'xiangqi') {
+        if (options.maxPlayers !== 2) throw new Error('中国象棋必须为 2 人');
+        if (options.xiangqi?.mode === 'puzzle' && !endgames.some((p) => p.id === options.xiangqi?.puzzleId))
+          throw new Error('残局不存在');
+        const seconds = options.xiangqi?.turnSeconds ?? 60;
+        if (!Number.isInteger(seconds) || seconds < 15 || seconds > 180)
+          throw new Error('回合时限必须在 15–180 秒之间');
+      }
       if (
         options.gomoku?.turnSeconds !== undefined &&
         (!Number.isInteger(options.gomoku.turnSeconds) ||
@@ -281,8 +293,9 @@ export class RoomService {
     }
     const p = this.actor(r);
     r.nextActionAt =
-      p && (p.isAI || (!p.connected && !(isGomoku(r.game) && r.game.options.timeoutLoss)))
-        ? Date.now() + aiDelay(isGomoku(r.game))
+      p &&
+      (p.isAI || (!p.connected && !((isGomoku(r.game) || isXiangqi(r.game)) && r.game.options.timeoutLoss)))
+        ? Date.now() + aiDelay(isGomoku(r.game) || isXiangqi(r.game))
         : null;
   }
   private actor(r: StoredRoom) {
@@ -436,18 +449,24 @@ export class RoomService {
         const r = await this.requireRoom(snapshot.id);
         if (r.status !== 'playing' || !r.game || Date.now() < (r.nextActionAt ?? r.game.turnDeadline)) return;
         const p = this.actor(r)!;
-        if (isGomoku(r.game) && r.game.options.timeoutLoss && Date.now() >= r.game.turnDeadline) {
-          r.game = timeout(r.game);
+        if (
+          (isGomoku(r.game) || isXiangqi(r.game)) &&
+          r.game.options.timeoutLoss &&
+          Date.now() >= r.game.turnDeadline
+        ) {
+          r.game = isGomoku(r.game) ? timeout(r.game) : xiangqiTimeout(r.game);
           r.status = 'finished';
           this.schedule(r);
         } else {
-          const action = isGomoku(r.game)
-            ? await computeGomokuMove(
-                gameView(r.game, p.id) as import('../../../shared/games/gomoku/types.js').GomokuView,
-                p.id,
-                p.difficulty,
-              )
-            : uno.aiMove(uno.getView(r.game, p.id), p.id, p.difficulty);
+          const action = isXiangqi(r.game)
+            ? await computeXiangqiMove(xiangqi.getView(r.game, p.id), p.id, p.difficulty)
+            : isGomoku(r.game)
+              ? await computeGomokuMove(
+                  gameView(r.game, p.id) as import('../../../shared/games/gomoku/types.js').GomokuView,
+                  p.id,
+                  p.difficulty,
+                )
+              : uno.aiMove(uno.getView(r.game, p.id), p.id, p.difficulty);
           this.applyAction(r, p.id, action, r.revision);
         }
         await this.commit(r);

@@ -65,9 +65,40 @@ try {
   await page.getByRole('button', { name: '认输', exact: true }).click();
   await page.getByRole('button', { name: '确认认输', exact: true }).click();
   await page.getByRole('button', { name: '再来一局', exact: true }).waitFor();
+  await page.goto(`http://localhost:${port}/lobby`);
+  await page.locator('.heading-buttons').getByRole('button', { name: '创建房间' }).click();
+  await page.getByLabel('选择游戏').selectOption('xiangqi');
+  await page.getByLabel('AI 难度').selectOption('hard');
+  await page.getByRole('dialog').getByRole('button', { name: '创建房间', exact: true }).click();
+  await page.getByRole('button', { name: '添加 AI', exact: true }).click();
+  await page.getByRole('button', { name: '我准备好了' }).click();
+  await page.getByRole('button', { name: '开始游戏' }).click();
+  await page.locator('.xiangqi-board').waitFor();
+  await page.locator('.xiangqi-point[data-x="1"][data-y="7"]').click();
+  await page.locator('.xiangqi-point[data-x="1"][data-y="0"]').click();
+  await page.locator('.xiangqi-fx[data-effect="cannon"]').waitFor();
+  await page.waitForFunction(() => document.querySelector('.recent-moves>strong')?.textContent === '02');
+  await page.reload();
+  await page.locator('.xiangqi-board').waitFor();
+  assert.equal(await page.locator('.xiangqi-fx').count(), 0);
+  await page.getByRole('button', { name: '认输', exact: true }).click();
+  await page.getByRole('button', { name: '确认认输', exact: true }).click();
+  await page.getByRole('button', { name: '再来一局', exact: true }).waitFor();
+  await page.goto(`http://localhost:${port}/xiangqi/endgames`);
+  assert.equal(await page.locator('.endgame-card').count(), 5);
+  await page
+    .locator('.endgame-card')
+    .filter({ has: page.getByRole('heading', { name: '重炮杀' }) })
+    .getByRole('button', { name: '挑战残局' })
+    .click();
+  await page.locator('.xiangqi-board').waitFor();
+  await page.locator('.xiangqi-point[data-x="3"][data-y="2"]').click();
+  await page.locator('.xiangqi-point[data-x="4"][data-y="2"]').click();
+  await page.getByRole('button', { name: '重试残局' }).waitFor();
+  assert.match(await page.locator('.xiangqi-status').innerText(), /残局已解开/);
   assert.deepEqual(errors, []);
   console.log(
-    'PASS: compiled Express serves SPA, assets, deep routes, same-origin Socket.IO and local UNO WAV; Gomoku lazy module, compiled hard-AI worker, placement, refresh and resign; zero browser errors.',
+    'PASS: compiled Express SPA, deep routes, Socket.IO, UNO WAV; Gomoku and Xiangqi lazy tables/compiled hard-AI workers; cannon capture effects, reconnect, resign, endgame checkmate; zero browser errors.',
   );
 } finally {
   await browser?.close();

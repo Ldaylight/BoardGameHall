@@ -44,6 +44,7 @@ export interface RoomOptions {
   allowAI: boolean;
   difficulty: Difficulty;
   gomoku?: Partial<import('./games/gomoku/types.js').GomokuOptions>;
+  xiangqi?: Partial<import('./games/xiangqi/types.js').XiangqiOptions>;
 }
 export interface ChatMessage {
   id: string;
@@ -56,11 +57,16 @@ export interface GameLog {
   id: string;
   text: string;
   event?: {
-    type: 'play' | 'draw' | 'uno' | 'win' | 'pass' | 'penalty' | 'place' | 'draw-game';
+    type: 'play' | 'draw' | 'uno' | 'win' | 'pass' | 'penalty' | 'place' | 'draw-game' | 'xiangqi-move';
     playerId: string;
     value?: import('./games/uno/index.js').Value;
     count?: number;
     uno?: boolean;
+    piece?: import('./games/xiangqi/types.js').PieceKind;
+    capture?: boolean;
+    from?: { x: number; y: number };
+    to?: { x: number; y: number };
+    check?: boolean;
   };
 }
 export interface RoomSummary {
@@ -73,11 +79,18 @@ export interface RoomSummary {
   status: 'waiting' | 'playing' | 'finished';
   allowSpectators: boolean;
 }
-export type GameView = import('./games/uno/index.js').UnoView | import('./games/gomoku/types.js').GomokuView;
+export type GameView =
+  | import('./games/uno/index.js').UnoView
+  | import('./games/gomoku/types.js').GomokuView
+  | import('./games/xiangqi/types.js').XiangqiView;
 export type GameState =
-  import('./games/uno/index.js').UnoState | import('./games/gomoku/types.js').GomokuState;
+  | import('./games/uno/index.js').UnoState
+  | import('./games/gomoku/types.js').GomokuState
+  | import('./games/xiangqi/types.js').XiangqiState;
 export type GameAction =
-  import('./games/uno/index.js').UnoAction | import('./games/gomoku/types.js').GomokuAction;
+  | import('./games/uno/index.js').UnoAction
+  | import('./games/gomoku/types.js').GomokuAction
+  | import('./games/xiangqi/types.js').XiangqiAction;
 export interface RoomView<View extends GameView = GameView> extends RoomSummary {
   hostId: string;
   options: RoomOptions;
@@ -90,7 +103,16 @@ export interface RoomView<View extends GameView = GameView> extends RoomSummary 
 }
 export interface ProfileData {
   user: User;
-  matches: { id: string; gameName: string; won: boolean; draw?: boolean; createdAt: string; score: number }[];
+  matches: {
+    id: string;
+    gameName: string;
+    won: boolean;
+    draw?: boolean;
+    createdAt: string;
+    score: number;
+    coinsDelta?: number;
+    training?: boolean;
+  }[];
   friends: User[];
   rankings: { user: User; wins: number; played: number; score: number }[];
 }
