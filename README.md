@@ -2,13 +2,13 @@
 
 一个可运行的多人 Web 桌游大厅。React 18 / TypeScript / Vite / Tailwind CSS / shadcn 风格本地 Radix UI 组件 / Zustand / React Router / Framer Motion；Express / Socket.IO；MySQL 8.0 / Prisma 6；可选 Redis 房间状态与 Socket.IO adapter。
 
-**UNO、五子棋和中国象棋现已开放。** 三款游戏复用大厅、用户、房间、聊天、观战、重连与结算系统；中国象棋包含标准对局和经典杀法教学残局。斗地主、德州扑克仍为独立入口，标记「即将上线」。默认体验模式也使用真正的 Socket.IO 服务端权威房间；只有持久化层在内存中。游戏目录使用静态 mock 数据先跑通 UI。
+**UNO、五子棋、中国象棋和斗地主现已开放。** 四款游戏复用大厅、用户、房间、聊天、观战、重连与结算系统；中国象棋包含标准对局和经典杀法教学残局，斗地主支持三人叫分和地主/农民阵营结算。德州扑克仍为独立预留入口。默认体验模式也使用真正的 Socket.IO 服务端权威房间；只有持久化层在内存中。游戏目录使用静态 mock 数据先跑通 UI。
 
 ## 电脑重启后，如何重新打开项目
 
 本机已经安装依赖、生成 Prisma 客户端、迁移并初始化数据库，包括五子棋平局迁移。普通重启后无需重复安装、迁移或种子初始化，保留已有 `.env`。其他已部署环境更新本次代码后，需要先执行一次 `npm run db:generate` 和 `npm run db:migrate`。
 
-本次象棋更新无需新增依赖或数据库迁移。已有部署更新代码后运行一次 `npm run db:seed`，将象棋目录标记为开放；生产部署再执行 `npm run build`。本机已执行种子更新。
+本次斗地主、性能条和 UNO 音效更新无需新增依赖或数据库迁移。已有部署更新代码后运行一次 `npm run db:seed`，将斗地主目录标记为开放；生产部署再执行 `npm run build`。本机已执行种子更新。
 
 在 PowerShell 中运行：
 
@@ -64,6 +64,14 @@ npm run dev
 按钮点击、鼠标悬停手牌、初始发牌、摸牌、普通出牌、跳过、反转、+2、万能换色、+4、UNO 语音、轮到你、漏喊罚牌和胜负均有音效。所有人的回合计时每秒轻响，最后 5 秒使用更明显的提示。点击 UNO 只记录声明；声明后的倒数第二张牌出牌成功时才播放 UNO 语音，AI 的合法 UNO 出牌也相同。UNO 使用本地 `client/public/audio/uno.wav` 合成语音，播放时压低音乐；加载失败可回退浏览器语音。
 
 牌局声音根据服务端公开日志的类型事件触发，覆盖真人和 AI 的动作；无隐藏手牌信息。客户端按唯一日志 ID 去重，聊天更新不重复出牌声音，断线重连和历史快照不补播旧动作。日志保留最近 60 条并使用独立单调序号，避免同一回合多次动作产生重复 ID。此更新不需要安装新依赖或进行数据库迁移。
+
+UNO 反转使用往返扫频和转向风声；万能变色使用四音阶与闪光音；+2 / +4 出牌成功时加入本地小丑“哈哈”语音和短回声。选牌、声明 UNO、摸罚牌不会触发小丑笑声。音效均经过同一音量/静音总线，静音会取消已排队的音频。音源说明见 `client/public/audio/README.md`，可选再生成脚本仅用于 Windows 开发，运行网站不需要 Windows 语音引擎。
+
+### FPS 与网络延迟
+
+大厅、等待房间、资料和设置的导航栏显示 FPS 与 RTT；手机放在导航栏第二行。游戏内统一显示在右上角，大屏导航另显示 P95 帧间隔。FPS 按真实 requestAnimationFrame 间隔采样，每秒只更新监测组件；RTT 每 5 秒通过认证后的 `system:ping` 测量一次，包含到游戏服务器的网络往返和响应时间。断线显示“离线”，3 秒未响应显示“超时”，后台标签暂停帧采样。
+
+大厅对内容相同的房间摘要去重，返回房间入口只订阅必要字段，游戏封面 memo 化；首页装饰浮动改用 CSS transform，滚动和离开可视区域时暂停，滚动时减少顶栏背景模糊，卡片使用局部绘制隔离。监测数据不会写入应用 Zustand 状态或 MySQL。FPS 是浏览器动画帧速率，受设备刷新率、浏览器和后台节流影响，并非 GPU 硬件计数。
 
 ## 2. MySQL 联机模式
 
@@ -158,13 +166,27 @@ UNO 对局去除大厅页眉、页脚、面包屑和营销标题，牌桌占满�
 
 实现标准 108 张牌、7 张起手、颜色/数值匹配、跳过、反转、+2、万能变色、+4（有当前色时不允许使用）、摸牌与结束回合、牌堆耗尽重洗、清空手牌获胜。已核对 [Mattel 官方 UNO 规则](https://shop.mattel.com/pages/games-uno-braille-rules) 与 [官方移动版说明](https://pre-letsplayuno.mattel163.com/news/guide/20181213/30092_732580.html)：打出倒数第二张前喊 UNO，漏喊被其他玩家抓到罚摸 **2 张**。本大厅沿用该罚牌数量，但**自动判罚漏喊**，不实现抓漏喊的时限窗口；不叠加罚牌，不实现 +4 挑战或抢喊 UNO。两人反转相当于跳过。摸到可出的牌时只可打出刚摸到的一张或 pass。回合 45 秒，超时中等策略代打；断线后临时代打，重连恢复自己手牌；主动离开后保留该手牌由 AI 完成本局，并让出房主身份。
 
-`GameDefinition<State, Action, View, Options>`：`id/name/minPlayers/maxPlayers/createState/applyAction/getLegalActions/aiMove/getView`；第四个可选泛型允许每款游戏定义自己的规则配置。UNO、五子棋和象棋独立实现，服务端统一分发动作，客户端按游戏加载桌面。
+`GameDefinition<State, Action, View, Options>`：`id/name/minPlayers/maxPlayers/createState/applyAction/getLegalActions/aiMove/getView`；第四个可选泛型允许每款游戏定义自己的规则配置。四款开放游戏独立实现，服务端统一分发动作，客户端按游戏加载桌面。
 
 UNO AI 每次动作由服务端设置 2000–3000ms 思考时间，包括 AI 摸牌后继续出牌，以及断线玩家的 AI 接管；调度器在时间到达后执行。简单随机合法动作；中等根据手牌颜色数量、效果牌和下一位公共手牌数量评分；UNO 困难档当前回退中等策略。AI 函数只接受 `UnoView`，没有牌堆顺序和对手手牌。观战者手牌数组为空。
 
 卡牌 2.5:3.5，扇形排列，悬停上浮 8px + rotateX/rotateY，选中放大 1.15 倍；普通灰边、稀有蓝边、史诗紫色粒子、传说金色呼吸光；发牌翻转与出牌拖尾。封面为本地 CSS/SVG 图形，无外部图片或字体依赖。支持系统减少动画偏好和设置页面动画开关。
 
 ## 6. 开发顺序与目录
+
+### 斗地主模块
+
+大厅点击「斗地主」→ 创建固定三人房间 → 邀请两位朋友或添加两位 AI → 所有真人准备 → 房主开始。三张底牌在叫分时只显示牌背，定地主后公开。玩家可多选手牌、使用「提示」循环合法组合、清空选择、出牌或不出；手机可左右滑动手牌。两位对手以等数量牌背显示剩余牌数，当前玩家名片显示计时器；聊天、动态和规则默认折叠。炸弹、王炸、飞机有组合特效与音效，结束时居中显示阵营、倍数与三位玩家的对局分，可再来一局或返回大厅。
+
+采用三人经典叫分规则，参考[清华五道口比赛说明](https://alumni.pbcsf.tsinghua.edu.cn/info/1002/1568.htm)：54 张牌，每人 17 张、底牌 3 张；每人叫分一次，只能叫更高分，3 分立即定地主，三家不叫重新发牌并轮换首叫者。地主 20 张先出，按座位逆时针轮转。牌序为 3 至 A、2、小王、大王；普通牌须同牌型、同张数、主体更大，炸弹压普通牌，王炸最大。两家连续不出后，最后出牌者重新领出。地主清空手牌则地主胜，任一农民清空手牌则两位农民共同胜。
+
+支持单张、对子、三张、三带单 / 对、至少五张顺子、至少三对连对、至少两组飞机及单 / 对附件、四带二单 / 两对、炸弹、王炸。2 和王不能进入连续牌的主体。本桌附件采用[波克官方牌型说明](https://mm.pook.com/ddz/rule/rule-2.html)的独立单翼约定：飞机单翼必须不同点数且不能带双王；四带二单不能带对子或王，四带二对必须为不同的两组对子。各平台附件规则有差异，游戏内规则明确写出本桌版本。未加入癞子、明牌、抢地主和额外加倍阶段。
+
+叫分为底分；每个炸弹或王炸使倍数 ×2。地主胜且两位农民均未出牌为春天，农民胜且地主只出过一手为反春天，再 ×2。对局分 = 底分 × 倍数，地主承担两份、每位农民一份，三方分数之和为零。对局分、阵营、底牌、公开出牌记录与倍数保存到 Match.publicResult；MatchPlayer、金币与 Ranking 沿用大厅奖励：每位胜者 +30 战绩积分 / +100 金币，败者 +5 / +10，两位农民的胜负、奖励和排行都正确归队；免费房间不扣金币。
+
+服务端拒绝抢回合、替他人出牌、重复 ID、未持有的牌、无效牌型、不能压过的组合及跨游戏动作。叫分 20 秒、出牌 45 秒，超时或离线由 AI 代打，重连恢复本人手牌和当前阶段。对局中只向本人发送自己的手牌；观战者没有手牌，底牌在定地主前隐藏，对局结束才允许公开剩余手牌。
+
+AI 延迟 500–1500ms，在独立工作线程中只获取 `DoudizhuView`：简单随机合法动作；中等评估叫分、组合结构、拆牌代价、对手剩余牌数，并配合农民队友；困难在中等策略上进行有时间预算的三层剩余手牌组合搜索，不假设或读取对手手牌。AI、超时代打和真人动作都进入既有 revision/规则校验路径。
 
 ### 中国象棋模块
 
@@ -221,7 +243,9 @@ AI 使用公开 `GomokuView`：简单从所有合法空位随机选点；中等�
 client/
   src/
     components/         # Layout, GameArt, PlayingCard, Chat, RoomDialogs, ui/*
-    pages/              # Lobby, Room, GameTable(分发), UnoTable, GomokuTable, XiangqiTable, XiangqiEndgames, Profile, Settings
+    pages/              # Lobby, Room, GameTable(分发), UnoTable, GomokuTable, XiangqiTable, DoudizhuTable, XiangqiEndgames, Profile, Settings
+    styles/doudizhu.css  # 斗地主牌桌、重叠手牌、移动端和组合动效
+    components/PerformanceBar.tsx # 独立 FPS / P95 / RTT 采样显示
     stores/app.ts       # Zustand 用户、连接、房间和消息
     lib/                # api, useRoom, utils
     styles.css          # 视觉系统、卡牌动效、响应式
@@ -236,6 +260,7 @@ server/src/
     store.ts            # MemoryStore / RedisStore
     gomoku-ai.ts        # 开发/生产通用的 AI 工作线程
     xiangqi-ai.ts       # 公开棋盘象棋 AI 工作线程
+    doudizhu-ai.ts      # 只接收本人视图的斗地主 AI 工作线程
 shared/
   types.ts
   catalog.ts
@@ -254,7 +279,12 @@ shared/
       repetition.ts     # 休闲长将/长捉及重复局面判罚
       ai.ts             # 随机 / 评分 / 迭代 Alpha-Beta
       endgames.ts       # 五个经典杀法教学局面与验证答案
-    doudizhu/index.ts
+    doudizhu/
+      index.ts          # 叫分、发牌、回合、地主/农民结算与私有视图
+      types.ts          # 扑克牌、牌型、动作与阵营类型
+      cards.ts          # 54 张牌、洗牌、排序和分组
+      rules.ts          # 14 种牌型、大小比较与合法组合枚举
+      ai.ts             # 随机 / 搭档启发式 / 剩余手牌组合搜索
     holdem/index.ts
 prisma/
   schema.prisma
@@ -268,6 +298,10 @@ tests/
   e2e/gomoku.spec.ts
   xiangqi.test.ts
   xiangqi-rooms.test.ts
+  doudizhu.test.ts
+  doudizhu-rooms.test.ts
+  performance.test.ts
+  e2e/doudizhu.spec.ts
   e2e/xiangqi.spec.ts
   e2e/lobby.spec.ts
 ```
@@ -286,6 +320,7 @@ tests/
 | `room:rematch` | 结果保存后重置房间 |
 | `game:action` | 仅提交动作和 revision，服务端规则校验 |
 | `room:chat` | 成员聊天，500 字与频率限制 |
+| `system:ping` | 网络 RTT 测量，直接 ack 服务端时间，不读写数据库 |
 
 服务端：`room:state` / `game:state` 每位玩家独立私有视图；`lobby:update` 房间摘要；`presence:update` 在线玩家；`server:error` 异常提示。所有请求 ack 为 `Result<T>`，有超时与失败提示。用户不能用动作参数冒充其他玩家。
 

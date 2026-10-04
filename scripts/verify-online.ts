@@ -5,7 +5,8 @@ import { io, type Socket } from 'socket.io-client';
 import { PrismaClient } from '@prisma/client';
 import type { ClientEvents, Result, RoomView, ServerEvents, Session, ProfileData } from '../shared/types.js';
 import { uno } from '../shared/games/uno/index.js';
-import { unoView, xiangqiView } from '../shared/games/views.js';
+import { unoView, xiangqiView, doudizhuView } from '../shared/games/views.js';
+import { doudizhu } from '../shared/games/doudizhu/index.js';
 const port = 3099;
 const base = `http://localhost:${port}`;
 const server = spawn(process.execPath, ['--import', 'tsx', 'server/src/index.ts'], {
@@ -359,6 +360,169 @@ try {
   assert.equal(afterPuzzle.matches.filter((m) => m.gameName === '中国象棋').length, 2);
   assert.equal(afterPuzzle.matches.find((m) => m.id === pend.matchId)?.training, true);
   assert.deepEqual(afterPuzzle.rankings, beforePuzzle.rankings);
+  const ddzUsers = [a, b, spectator],
+    ddzSockets = [sa, sb, ss];
+  const beforeDdz = await Promise.all(
+    ddzUsers.map((u) => api<ProfileData>('/profile', 'GET', undefined, u.token)),
+  );
+  const dr = await request<RoomView>((ack) =>
+    sa.emit(
+      'room:create',
+      {
+        gameId: 'doudizhu',
+        name: 'MySQL 斗地主三人联机',
+        maxPlayers: 3,
+        allowAI: true,
+        allowSpectators: true,
+        difficulty: 'medium',
+      },
+      ack,
+    ),
+  );
+  roomIds.push(dr.id);
+  await request((ack) => sb.emit('room:join', { code: dr.code }, ack));
+  await request((ack) => ss.emit('room:join', { code: dr.code }, ack));
+  for (const s of ddzSockets)
+    await request((ack) => s.emit('room:ready', { roomId: dr.id, ready: true }, ack));
+  await request((ack) => sa.emit('room:start', { roomId: dr.id }, ack));
+  const syncD = (i = 0) =>
+    request<RoomView>((ack) => ddzSockets[i].emit('room:sync', { roomId: dr.id }, ack));
+  let dv = await syncD();
+  assert.equal(doudizhuView(dv).kitty.length, 0);
+  assert.equal('hands' in doudizhuView(dv), false);
+  await request((ack) => sa.emit('room:chat', { roomId: dr.id, text: '斗地主农民组队 🃏' }, ack));
+  dv = await syncD();
+  const handD = doudizhuView(dv).hand;
+  sa.disconnect();
+  sa = await connect(a);
+  ddzSockets[0] = sa;
+  assert.deepEqual(doudizhuView(await syncD()).hand, handD);
+  let dSteps = 0;
+  while (dSteps++ < 300) {
+    dv = await syncD();
+    const g = doudizhuView(dv);
+    if (g.phase === 'finished') break;
+    const actor = ddzUsers.findIndex((u) => u.user.id === g.currentPlayerId),
+      own = await syncD(actor);
+    assert.equal(await db.match.count({ where: { roomId: dr.id } }), 0);
+    const action = doudizhu.aiMove(doudizhuView(own), g.currentPlayerId, 'medium');
+    await request((ack) =>
+      ddzSockets[actor].emit('game:action', { roomId: dr.id, revision: own.revision, action }, ack),
+    );
+  }
+  dv = await syncD();
+  const dg = doudizhuView(dv);
+  assert.equal(dg.phase, 'finished');
+  assert.equal(dv.resultSaved, true);
+  const dRecord = await db.match.findUniqueOrThrow({
+    where: { id: dv.matchId! },
+    include: { players: true },
+  });
+  const dResult = dRecord.publicResult as {
+    winnerIds: string[];
+    winningTeam: string;
+    scores: Record<string, number>;
+    moves: unknown[];
+  };
+  assert.deepEqual(dResult.winnerIds, dg.winnerIds);
+  assert.equal(dResult.winnerIds.length, dg.winningTeam === 'farmers' ? 2 : 1);
+  assert.equal(
+    Object.values(dResult.scores).reduce((a, b) => a + b, 0),
+    0,
+  );
+  assert.equal(dResult.moves.length, dg.moves.length);
+  for (let i = 0; i < ddzUsers.length; i++) {
+    const uid = ddzUsers[i].user.id,
+      won = dg.winnerIds.includes(uid),
+      p = dRecord.players.find((p) => p.playerId === uid)!;
+    assert.equal(p.won, won);
+    assert.equal(p.score, won ? 30 : 5);
+    assert.equal(p.coinsDelta, won ? 100 : 10);
+    const current = await api<ProfileData>('/profile', 'GET', undefined, ddzUsers[i].token);
+    assert.equal(current.user.coins, beforeDdz[i].user.coins + (won ? 100 : 10));
+    assert.equal(current.matches.find((m) => m.id === dv.matchId)?.gameName, '斗地主');
+    const ranking = await db.ranking.findUniqueOrThrow({
+      where: { userId_gameId: { userId: uid, gameId: 'doudizhu' } },
+    });
+    assert.equal(ranking.played, 1);
+    assert.equal(ranking.wins, won ? 1 : 0);
+  }
+  await syncD();
+  assert.equal(await db.match.count({ where: { roomId: dr.id } }), 1);
+  assert.equal(await db.chatMessage.count({ where: { roomId: dr.id } }), 1);
+  await request((ack) => sa.emit('room:rematch', { roomId: dr.id }, ack));
+  assert.equal((await syncD()).game, null);
+  // A second real game specifically exercises two-farmer settlement in the SQL transaction.
+  const beforeFarmers = await Promise.all(
+    ddzUsers.map((u) => api<ProfileData>('/profile', 'GET', undefined, u.token)),
+  );
+  const previousRanks = await Promise.all(
+    ddzUsers.map((u) =>
+      db.ranking.findUniqueOrThrow({ where: { userId_gameId: { userId: u.user.id, gameId: 'doudizhu' } } }),
+    ),
+  );
+  for (const s of ddzSockets)
+    await request((ack) => s.emit('room:ready', { roomId: dr.id, ready: true }, ack));
+  await request((ack) => sa.emit('room:start', { roomId: dr.id }, ack));
+  const dealt = await Promise.all(ddzSockets.map((_, i) => syncD(i)));
+  const weakIndex = dealt
+    .map((r, i) => ({ i, max: Math.max(...doudizhuView(r).hand.map((c) => c.rank)) }))
+    .sort((a, b) => a.max - b.max)[0].i;
+  const weakId = ddzUsers[weakIndex].user.id;
+  let farmSteps = 0;
+  while (farmSteps++ < 300) {
+    const r = await syncD(),
+      g = doudizhuView(r);
+    if (g.phase === 'finished') break;
+    const actor = ddzUsers.findIndex((u) => u.user.id === g.currentPlayerId),
+      own = await syncD(actor),
+      v = doudizhuView(own);
+    const action: import('../shared/games/doudizhu/types.js').DoudizhuAction =
+      v.phase === 'bidding'
+        ? { type: 'bid', value: g.currentPlayerId === weakId ? 3 : 0 }
+        : g.currentPlayerId === weakId
+          ? v.trick
+            ? { type: 'pass' }
+            : { type: 'play', cardIds: [v.hand.at(-1)!.id] }
+          : doudizhu.aiMove(v, g.currentPlayerId, 'medium');
+    assert.equal(await db.match.count({ where: { roomId: dr.id } }), 1);
+    await request((ack) =>
+      ddzSockets[actor].emit('game:action', { roomId: dr.id, revision: own.revision, action }, ack),
+    );
+  }
+  const farmRoom = await syncD(),
+    farmGame = doudizhuView(farmRoom);
+  assert.equal(farmGame.winningTeam, 'farmers');
+  assert.equal(farmGame.winnerIds.length, 2);
+  assert.equal(farmRoom.resultSaved, true);
+  const farmRecord = await db.match.findUniqueOrThrow({
+    where: { id: farmRoom.matchId! },
+    include: { players: true },
+  });
+  for (let i = 0; i < ddzUsers.length; i++) {
+    const uid = ddzUsers[i].user.id,
+      won = uid !== weakId,
+      p = farmRecord.players.find((p) => p.playerId === uid)!;
+    assert.equal(p.won, won);
+    assert.equal(p.coinsDelta, won ? 100 : 10);
+    assert.equal(p.score, won ? 30 : 5);
+    const current = await api<ProfileData>('/profile', 'GET', undefined, ddzUsers[i].token);
+    assert.equal(current.user.coins, beforeFarmers[i].user.coins + (won ? 100 : 10));
+    const ranking = await db.ranking.findUniqueOrThrow({
+      where: { userId_gameId: { userId: uid, gameId: 'doudizhu' } },
+    });
+    assert.equal(ranking.played, 2);
+    assert.equal(ranking.wins, previousRanks[i].wins + (won ? 1 : 0));
+  }
+  await syncD();
+  assert.equal(await db.match.count({ where: { roomId: dr.id } }), 2);
+  await request((ack) => sa.emit('room:rematch', { roomId: dr.id }, ack));
+  console.log(
+    `PASS: Doudizhu farmer-team MySQL rematch (${farmSteps} actions), both farmers won/rewarded/ranked, cumulative exactly-once records.`,
+  );
+  console.log(
+    `PASS: Doudizhu 3-human MySQL game (${dSteps} actions), bidding/private hand/reconnect, team ${dg.winningTeam}, public replay/scores, all 3 MatchPlayers, exactly-once rankings and rewards, rematch.`,
+  );
   console.log(
     'PASS: Xiangqi MySQL capture replay, resignation, Unicode chat, exactly-once ranking/rewards; endgame checkmate persisted with zero practice rewards.',
   );

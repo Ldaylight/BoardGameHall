@@ -5,7 +5,14 @@ import { RoomService, type GameServer } from '../services/rooms.js';
 const difficulty = z.enum(['easy', 'medium', 'hard']);
 const id = z.string().uuid();
 const room = z.object({ roomId: id });
-const action = z.discriminatedUnion('type', [
+const action = z.union([
+  z
+    .object({
+      type: z.literal('bid'),
+      value: z.union([z.literal(0), z.literal(1), z.literal(2), z.literal(3)]),
+    })
+    .strict(),
+  z.object({ type: z.literal('play'), cardIds: z.array(z.string().min(1).max(20)).min(1).max(20) }).strict(),
   z
     .object({
       type: z.literal('move'),
@@ -63,6 +70,9 @@ export function registerSockets(io: GameServer, rooms: RoomService) {
     io.emit('presence:update', [...users.values()]);
   }
   io.on('connection', (socket) => {
+    socket.on('system:ping', (ack) => {
+      if (typeof ack === 'function') ack(Date.now());
+    });
     const user = socket.data.user;
     socket.on('room:current', (ack) => void respond(ack, () => rooms.current(user)));
     void (async () => {

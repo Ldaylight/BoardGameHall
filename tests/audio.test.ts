@@ -4,6 +4,7 @@ import { defaultAudio, normalizeAudio } from '../client/src/lib/audio-settings';
 import { uno } from '../shared/games/uno';
 import type { RoomView } from '../shared/types';
 import { xiangqiTimelines } from '../client/src/lib/xiangqi-timeline';
+import { doudizhu } from '../shared/games/doudizhu';
 
 function room(): RoomView {
   const state = uno.createState(['a', 'b']);
@@ -35,6 +36,43 @@ function room(): RoomView {
 }
 
 describe('audio preferences and public events', () => {
+  it('joker laughter occurs only on accepted +2/+4 play events, once after server acknowledgement', () => {
+    const view = room(),
+      tracker = new GameAudioTracker();
+    tracker.update(view, true, 'a');
+    for (const value of ['draw2', 'wild4'] as const) {
+      view.game!.logs.push({ id: value, text: 'accepted', event: { type: 'play', playerId: 'b', value } });
+      expect(tracker.update(view, true, 'a').filter((c) => c.effect === 'joker-laugh')).toHaveLength(1);
+      expect(tracker.update(structuredClone(view), true, 'a')).toEqual([]);
+    }
+    expect(eventCues({ type: 'draw', playerId: 'a', count: 4 }).some((c) => c.effect === 'joker-laugh')).toBe(
+      false,
+    );
+    expect(eventCues({ type: 'uno', playerId: 'a' })).toEqual([]);
+    tracker.update(view, false, 'a');
+    view.game!.logs.push({
+      id: 'missed',
+      text: 'history',
+      event: { type: 'play', playerId: 'b', value: 'wild4' },
+    });
+    expect(tracker.update(view, true, 'a')).toEqual([]);
+  });
+  it('a farmer hears victory when the teammate finishes; Doudizhu special combinations have distinct sounds', () => {
+    const view = room();
+    view.gameId = 'doudizhu';
+    view.game = doudizhu.getView(doudizhu.createState(['a', 'b', 'c']), 'b');
+    const tracker = new GameAudioTracker();
+    tracker.update(view, true, 'b');
+    view.game.winnerId = 'c';
+    view.game.winnerIds = ['b', 'c'];
+    view.game.logs.push({ id: 'team-end', text: 'team wins', event: { type: 'ddz-win', playerId: 'c' } });
+    expect(tracker.update(view, true, 'b')).toEqual([{ effect: 'win', delay: 0.3 }]);
+    for (const combo of ['bomb', 'rocket', 'plane-single'] as const)
+      expect(eventCues({ type: 'ddz-play', playerId: 'a', combo }).map((c) => c.effect)).toEqual([
+        'play',
+        combo === 'plane-single' ? 'ddz-plane' : `ddz-${combo}`,
+      ]);
+  });
   it('all seven Xiangqi pieces have distinct movement/capture sounds with impact and check timing', () => {
     for (const piece of [
       'general',
@@ -75,7 +113,11 @@ describe('audio preferences and public events', () => {
   });
   it('gives special cards distinct cues and keeps draw / UNO / penalties separate', () => {
     for (const value of ['skip', 'reverse', 'draw2', 'wild', 'wild4'] as const) {
-      expect(eventCues({ type: 'play', playerId: 'b', value }).map((c) => c.effect)).toEqual(['play', value]);
+      expect(eventCues({ type: 'play', playerId: 'b', value }).map((c) => c.effect)).toEqual([
+        'play',
+        value,
+        ...(['draw2', 'wild4'].includes(value) ? ['joker-laugh'] : []),
+      ]);
     }
     expect(eventCues({ type: 'play', playerId: 'b', value: '3' })).toEqual([{ effect: 'play' }]);
     expect(eventCues({ type: 'draw', playerId: 'b', count: 0 })).toEqual([]);

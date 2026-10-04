@@ -54,7 +54,7 @@ export const games: GameMeta[] = [
     maxPlayers: 3,
     supportsAI: true,
     supportsMultiplayer: true,
-    available: false,
+    available: true,
     accent: '#afa0c9',
     tag: '欢乐组队',
     description: '三人一桌，经典的合作与对抗。',

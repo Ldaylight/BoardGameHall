@@ -33,11 +33,31 @@ export function eventCues(event: GameLog['event'], me?: string): AudioCue[] {
       ];
     case 'place':
       return [{ effect: 'stone' }];
+    case 'ddz-bid':
+      return [{ effect: 'turn' }];
+    case 'ddz-deal':
+      return [{ effect: 'deal' }];
+    case 'ddz-landlord':
+      return [{ effect: 'draw' }];
+    case 'ddz-play':
+      return [
+        { effect: 'play' },
+        ...(event.combo === 'bomb' || event.combo === 'rocket'
+          ? [{ effect: `ddz-${event.combo}` as SoundEffect, delay: 0.06 }]
+          : event.combo?.startsWith('plane')
+            ? [{ effect: 'ddz-plane' as const, delay: 0.06 }]
+            : []),
+      ];
+    case 'ddz-win':
+      return [{ effect: event.playerId === me ? 'win' : 'lose', delay: 0.3 }];
     case 'play': {
       const special = ['skip', 'reverse', 'draw2', 'wild', 'wild4'].includes(event.value ?? '');
       return [
         { effect: 'play' },
         ...(special ? [{ effect: event.value as SoundEffect, delay: 0.08 }] : []),
+        ...(event.value === 'draw2' || event.value === 'wild4'
+          ? [{ effect: 'joker-laugh' as const, delay: 0.12 }]
+          : []),
         ...(event.uno ? [{ effect: 'uno' as const, delay: 0.1 }] : []),
       ];
     }
@@ -93,7 +113,12 @@ export class GameAudioTracker {
     const fresh = game.logs.filter((log) => !this.seen.has(log.id));
     this.seen = new Set(game.logs.map((log) => log.id));
     // A large batch after sleeping / navigating represents history, not live actions.
-    if (fresh.length <= 8) for (const log of fresh) cues.push(...eventCues(log.event, me));
+    if (fresh.length <= 8)
+      for (const log of fresh) {
+        if (log.event?.type === 'ddz-win' && 'kind' in game && game.kind === 'doudizhu')
+          cues.push({ effect: game.winnerIds.includes(me ?? '') ? 'win' : 'lose', delay: 0.3 });
+        else cues.push(...eventCues(log.event, me));
+      }
     if (this.currentPlayerId !== game.currentPlayerId && game.currentPlayerId === me && !game.winnerId)
       cues.push({ effect: 'turn', delay: 0.15 });
     this.currentPlayerId = game.currentPlayerId;

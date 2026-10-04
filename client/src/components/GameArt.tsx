@@ -1,12 +1,25 @@
-import { motion, useReducedMotion } from 'framer-motion';
+import { useReducedMotion } from 'framer-motion';
+import { memo, useEffect, useRef, useState, type CSSProperties } from 'react';
 import { useApp } from '@/stores/app';
 import type { GameId } from '../../../shared/types';
-export function GameArt({ game, hero = false }: { game: GameId; hero?: boolean }) {
+export const GameArt = memo(function GameArt({ game, hero = false }: { game: GameId; hero?: boolean }) {
   const reduce = useReducedMotion();
   const motionEnabled = useApp((s) => s.motionEnabled);
+  const root = useRef<HTMLDivElement>(null),
+    [visible, setVisible] = useState(true);
+  useEffect(() => {
+    if (!hero || !root.current) return;
+    const observer = new IntersectionObserver(([entry]) => setVisible(entry.isIntersecting));
+    observer.observe(root.current);
+    return () => observer.disconnect();
+  }, [hero]);
   if (game === 'uno')
     return (
-      <div className={`game-art uno-art ${hero ? 'hero-art' : ''}`} aria-hidden="true">
+      <div
+        ref={root}
+        className={`game-art uno-art ${hero ? `hero-art ${motionEnabled && !reduce ? 'art-floating' : ''} ${visible ? '' : 'art-paused'}` : ''}`}
+        aria-hidden="true"
+      >
         <div className="art-orbit orbit-one" />
         <div className="art-orbit orbit-two" />
         <div className="art-spark spark-one">✦</div>
@@ -17,19 +30,24 @@ export function GameArt({ game, hero = false }: { game: GameId; hero?: boolean }
           { c: 'red', n: '7' },
           { c: 'yellow', n: 'UNO' },
         ].map((card, i) => (
-          <motion.div
+          <div
             key={card.c}
             className={`art-card art-card-${i} ${card.c}`}
-            style={hero ? { rotate: [-27, -10, 13, 30][i] } : undefined}
-            animate={hero && motionEnabled && !reduce ? { y: [0, -7, 0] } : undefined}
-            transition={{ duration: 5, repeat: Infinity, delay: i * 0.35 }}
+            style={
+              hero
+                ? ({
+                    '--art-rotation': `${[-27, -10, 13, 30][i]}deg`,
+                    '--art-delay': `${i * 0.35}s`,
+                  } as CSSProperties)
+                : undefined
+            }
           >
             <span className="art-corner">{card.n === 'UNO' ? '✦' : card.n}</span>
             <div className="art-ellipse">
               <span>{card.n}</span>
             </div>
             <span className="art-corner bottom">{card.n === 'UNO' ? '✦' : card.n}</span>
-          </motion.div>
+          </div>
         ))}
       </div>
     );
@@ -84,4 +102,4 @@ export function GameArt({ game, hero = false }: { game: GameId; hero?: boolean }
       )}
     </div>
   );
-}
+});

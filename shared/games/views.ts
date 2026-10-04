@@ -10,7 +10,13 @@ export function xiangqiView(room: RoomView): XiangqiView {
 }
 export function unoView(room: RoomView): UnoView {
   const game = room.game;
-  if (!game || !('hand' in game)) throw new Error('当前房间不是正在进行的 UNO 对局');
+  if (!game || 'kind' in game) throw new Error('当前房间不是正在进行的 UNO 对局');
+  return game;
+}
+export function doudizhuView(room: RoomView): import('./doudizhu/types.js').DoudizhuView {
+  const game = room.game;
+  if (!game || !('kind' in game) || game.kind !== 'doudizhu')
+    throw new Error('当前房间不是正在进行的斗地主对局');
   return game;
 }
 export function gomokuView(room: RoomView): GomokuView {

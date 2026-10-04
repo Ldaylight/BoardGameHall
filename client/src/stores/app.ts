@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type { RoomSummary, RoomView, Session, User } from '../../../shared/types';
 import { applyTheme, savedTheme, type ThemeId } from '@/lib/themes';
+import { sameRoomSummaries } from '@/lib/performance';
 interface AppState {
   session: Session | null;
   connected: boolean;
@@ -52,7 +53,7 @@ export const useApp = create<AppState>((set) => ({
   },
   setSession: (session) => set({ session }),
   setConnected: (connected) => set({ connected }),
-  setRooms: (rooms) => set({ rooms }),
+  setRooms: (rooms) => set((s) => (sameRoomSummaries(s.rooms, rooms) ? s : { rooms })),
   setRoom: (room) =>
     set((s) => {
       if (room && (s.roomsById[room.id]?.revision ?? -1) > room.revision) return s;

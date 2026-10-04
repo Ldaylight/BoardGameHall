@@ -19,12 +19,15 @@ import {
   gameView,
   isGomoku,
   isXiangqi,
+  isDoudizhu,
 } from '../../../shared/games/index.js';
 import { timeout } from '../../../shared/games/gomoku/index.js';
 import { computeGomokuMove } from './gomoku-ai.js';
 import { xiangqi, xiangqiTimeout } from '../../../shared/games/xiangqi/index.js';
 import { endgames } from '../../../shared/games/xiangqi/endgames.js';
 import { computeXiangqiMove } from './xiangqi-ai.js';
+import { computeDoudizhuMove } from './doudizhu-ai.js';
+import { doudizhu } from '../../../shared/games/doudizhu/index.js';
 import {
   createRoomRecord,
   finishMatch,
@@ -119,7 +122,9 @@ export class RoomService {
     user = (await getUser(user.id)) ?? user;
     return this.store.lock(`user:${user.id}`, async () => {
       await this.noOtherSeat(user.id);
-      if (!['uno', 'gomoku', 'xiangqi'].includes(options.gameId)) throw new Error('该游戏尚未开放');
+      if (!['uno', 'gomoku', 'xiangqi', 'doudizhu'].includes(options.gameId))
+        throw new Error('该游戏尚未开放');
+      if (options.gameId === 'doudizhu' && options.maxPlayers !== 3) throw new Error('斗地主必须为 3 人');
       if (!Number.isInteger(options.maxPlayers) || options.maxPlayers < 2 || options.maxPlayers > 6)
         throw new Error('人数必须在 2–6 之间');
       if (options.gameId === 'gomoku' && options.maxPlayers !== 2) throw new Error('五子棋必须为 2 人');
@@ -272,6 +277,8 @@ export class RoomService {
       this.requireHost(r, user.id);
       if (r.status !== 'waiting') throw new Error('房间已经开始');
       if (r.players.length < 2) throw new Error('至少需要 2 位玩家');
+      if (r.options.gameId === 'doudizhu' && r.players.length !== 3)
+        throw new Error('斗地主需要 3 位玩家，可添加 AI 补位');
       if (r.players.some((p) => !p.ready)) throw new Error('请等待所有玩家准备');
       r.players.sort((a, b) => a.seat - b.seat);
       r.game = createGame(
@@ -295,7 +302,7 @@ export class RoomService {
     r.nextActionAt =
       p &&
       (p.isAI || (!p.connected && !((isGomoku(r.game) || isXiangqi(r.game)) && r.game.options.timeoutLoss)))
-        ? Date.now() + aiDelay(isGomoku(r.game) || isXiangqi(r.game))
+        ? Date.now() + aiDelay(isGomoku(r.game) || isXiangqi(r.game) || isDoudizhu(r.game))
         : null;
   }
   private actor(r: StoredRoom) {
@@ -317,6 +324,8 @@ export class RoomService {
   }
   async action(user: User, id: string, action: GameAction, revision: number) {
     await this.mutate(id, user.id, async (r) => {
+      if (!r.players.some((p) => p.id === user.id && !p.hasLeft))
+        throw new Error('观战玩家无法操作手牌或棋子');
       this.applyAction(r, user.id, action, revision);
     });
   }
@@ -458,15 +467,17 @@ export class RoomService {
           r.status = 'finished';
           this.schedule(r);
         } else {
-          const action = isXiangqi(r.game)
-            ? await computeXiangqiMove(xiangqi.getView(r.game, p.id), p.id, p.difficulty)
-            : isGomoku(r.game)
-              ? await computeGomokuMove(
-                  gameView(r.game, p.id) as import('../../../shared/games/gomoku/types.js').GomokuView,
-                  p.id,
-                  p.difficulty,
-                )
-              : uno.aiMove(uno.getView(r.game, p.id), p.id, p.difficulty);
+          const action = isDoudizhu(r.game)
+            ? await computeDoudizhuMove(doudizhu.getView(r.game, p.id), p.id, p.difficulty)
+            : isXiangqi(r.game)
+              ? await computeXiangqiMove(xiangqi.getView(r.game, p.id), p.id, p.difficulty)
+              : isGomoku(r.game)
+                ? await computeGomokuMove(
+                    gameView(r.game, p.id) as import('../../../shared/games/gomoku/types.js').GomokuView,
+                    p.id,
+                    p.difficulty,
+                  )
+                : uno.aiMove(uno.getView(r.game, p.id), p.id, p.difficulty);
           this.applyAction(r, p.id, action, r.revision);
         }
         await this.commit(r);

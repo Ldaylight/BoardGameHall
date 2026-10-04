@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
   Bell,
@@ -26,6 +27,7 @@ import { api, leaveRoom, perform } from '@/lib/api';
 import type { ProfileData } from '../../../shared/types';
 import { JoinRoomDialog } from './RoomDialogs';
 import { AudioButton } from './AudioController';
+import { PerformanceBar } from './PerformanceBar';
 export function Brand() {
   return (
     <Link to="/lobby" className="brand">
@@ -54,7 +56,13 @@ export function Layout() {
   const [help, setHelp] = useState(false);
   const [topSearch, setTopSearch] = useState('');
   const [leaving, setLeaving] = useState(false);
-  const activeRoom = useApp((s) => (s.activeRoomId ? s.roomsById[s.activeRoomId] : null));
+  const activeRoom = useApp(
+    useShallow((s) => {
+      const r = s.activeRoomId ? s.roomsById[s.activeRoomId] : null;
+      return r ? { id: r.id, code: r.code, status: r.status, hasGame: !!r.game } : null;
+    }),
+  );
+  const shell = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   const user = useApp((s) => s.session?.user);
   const connected = useApp((s) => s.connected);
@@ -64,8 +72,23 @@ export function Layout() {
   useEffect(() => {
     setMobile(false);
   }, [location.pathname]);
+  useEffect(() => {
+    if (location.pathname !== '/lobby') return;
+    let idle: ReturnType<typeof setTimeout>;
+    const scroll = () => {
+      shell.current?.classList.add('lobby-scrolling');
+      clearTimeout(idle);
+      idle = setTimeout(() => shell.current?.classList.remove('lobby-scrolling'), 180);
+    };
+    window.addEventListener('scroll', scroll, { passive: true });
+    return () => {
+      window.removeEventListener('scroll', scroll);
+      clearTimeout(idle);
+      shell.current?.classList.remove('lobby-scrolling');
+    };
+  }, [location.pathname]);
   return (
-    <div className={`app-shell ${location.pathname.startsWith('/game/') ? 'game-shell' : ''}`}>
+    <div ref={shell} className={`app-shell ${location.pathname.startsWith('/game/') ? 'game-shell' : ''}`}>
       <header className="topbar">
         <div className="brand-wrap">
           <Button
@@ -100,6 +123,7 @@ export function Layout() {
           <kbd>↵</kbd>
         </form>
         <div className="top-actions">
+          <PerformanceBar game={location.pathname.startsWith('/game/')} />
           <AudioButton />
           <span className="coins">
             <Coins size={17} />
@@ -126,7 +150,10 @@ export function Layout() {
       {activeRoom && !location.pathname.endsWith(`/${activeRoom.id}`) && (
         <div className="room-return-bar">
           <div className="room-return-control">
-            <Link to={`/${activeRoom.game ? 'game' : 'room'}/${activeRoom.id}`} className="room-return-link">
+            <Link
+              to={`/${activeRoom.hasGame ? 'game' : 'room'}/${activeRoom.id}`}
+              className="room-return-link"
+            >
               <Gamepad2 size={16} />
               <b>回到房间</b>
               <span>{activeRoom.code}</span>
@@ -354,7 +381,7 @@ function SocialDrawer({ open, onOpenChange }: { open: boolean; onOpenChange: (v:
           </div>
           <div className="announcement">
             <span>PLAYROOM 公告</span>
-            <p>UNO 体验版已开放。五子棋、象棋和更多经典，正在路上。</p>
+            <p>UNO、五子棋、中国象棋与斗地主已开放。邀请朋友，或添加 AI 一起玩。</p>
             <small>好游戏，好朋友，好时光。</small>
           </div>
         </DialogContent>

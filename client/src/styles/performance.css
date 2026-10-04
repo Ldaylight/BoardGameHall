@@ -1,0 +1,175 @@
+.performance-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 9px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: rgb(var(--bg-rgb) / 0.8);
+  font-size: 10px;
+  color: var(--muted);
+  white-space: nowrap;
+  contain: layout paint style;
+  pointer-events: auto;
+}
+.performance-bar > span {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.performance-bar b {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--mint);
+  font-variant-numeric: tabular-nums;
+  min-width: 16px;
+  text-align: right;
+}
+.performance-bar small {
+  font-size: 8px;
+}
+.performance-bar .metric-warning b {
+  color: #f5b679;
+}
+.performance-in-game {
+  position: fixed;
+  top: 10px;
+  right: 12px;
+  z-index: 48;
+  background: rgb(var(--bg-rgb) / 0.92);
+}
+.performance-bar .metric-frame {
+  display: none;
+}
+@media (min-width: 1550px) {
+  .performance-bar .metric-frame {
+    display: flex;
+  }
+  .performance-in-game .metric-frame {
+    display: none;
+  }
+}
+@media (max-width: 1100px) {
+  .top-search {
+    display: none;
+  }
+  .performance-bar {
+    gap: 5px;
+    padding: 5px 7px;
+  }
+}
+@media (max-width: 600px) {
+  .performance-bar {
+    font-size: 9px;
+    padding: 5px;
+    gap: 5px;
+  }
+  .performance-bar svg {
+    display: none;
+  }
+  .performance-bar b {
+    font-size: 9px;
+  }
+  .performance-bar small {
+    font-size: 7px;
+  }
+  .performance-in-game {
+    top: 8px;
+    right: 8px;
+  }
+  .top-actions {
+    gap: 6px;
+  }
+}
+.lobby-scrolling .hero-art .art-card {
+  animation-play-state: paused;
+}
+.hero .hero-art.art-floating .art-card {
+  animation: art-float 5s ease-in-out infinite;
+  animation-delay: var(--art-delay);
+  will-change: transform;
+}
+.lobby-scrolling .hero .hero-art.art-floating .art-card {
+  animation-play-state: paused;
+}
+.hero .hero-art.art-paused .art-card {
+  animation-play-state: paused;
+  will-change: auto;
+}
+.game-tile {
+  contain: layout style paint;
+}
+.game-tile .tile-play {
+  backdrop-filter: none;
+}
+.lobby-scrolling .topbar {
+  backdrop-filter: none;
+  background: rgb(var(--bg-rgb) / 0.96);
+}
+@keyframes art-float {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) rotate(var(--art-rotation));
+  }
+  50% {
+    transform: translate3d(0, -7px, 0) rotate(var(--art-rotation));
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero-art .art-card {
+    animation: none !important;
+    will-change: auto !important;
+  }
+}
+.game-shell .table-toolbar {
+  padding-right: 190px;
+}
+@media (max-width: 1100px) {
+  .app-shell .topbar .top-search {
+    display: none;
+  }
+}
+@media (max-width: 600px) {
+  .app-shell:not(.game-shell) .topbar {
+    height: 94px;
+    padding-bottom: 26px;
+  }
+  .topbar .performance-bar {
+    position: absolute;
+    left: 12px;
+    bottom: 5px;
+  }
+}
+@media (max-width: 1100px) {
+  .game-shell .table-toolbar {
+    padding-right: 160px;
+  }
+}
+@media (max-width: 600px) {
+  .performance-in-game {
+    width: 58px;
+    flex-direction: column;
+    gap: 2px;
+    align-items: flex-end;
+    padding: 3px 4px;
+    top: 6px;
+  }
+  .game-shell .table-toolbar {
+    padding-right: 76px;
+  }
+  .game-shell .table-toolbar-actions {
+    gap: 1px;
+  }
+  .game-shell .table-toolbar-actions .button {
+    padding: 5px 6px;
+  }
+  .game-shell .table-toolbar-actions .button-icon {
+    width: 26px;
+  }
+  .game-shell .table-toolbar-left {
+    gap: 3px;
+  }
+  .game-shell .table-room-code {
+    font-size: 10px;
+  }
+}

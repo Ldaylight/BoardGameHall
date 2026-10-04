@@ -96,9 +96,72 @@ try {
   await page.locator('.xiangqi-point[data-x="4"][data-y="2"]').click();
   await page.getByRole('button', { name: '重试残局' }).waitFor();
   assert.match(await page.locator('.xiangqi-status').innerText(), /残局已解开/);
+  const laugh = await page.request.get(`http://localhost:${port}/audio/joker-laugh.wav`);
+  assert.equal(laugh.status(), 200);
+  assert.equal((await laugh.body()).subarray(0, 4).toString(), 'RIFF');
+  await page.goto(`http://localhost:${port}/lobby`);
+  await page.locator('.heading-buttons').getByRole('button', { name: '创建房间' }).click();
+  await page.getByLabel('选择游戏').selectOption('doudizhu');
+  await page.getByLabel('AI 难度').selectOption('hard');
+  await page.getByRole('dialog').getByRole('button', { name: '创建房间', exact: true }).click();
+  await page.getByRole('button', { name: '添加 AI', exact: true }).first().click();
+  await page.getByRole('button', { name: '添加 AI', exact: true }).first().click();
+  await page.getByRole('button', { name: '我准备好了' }).click();
+  await page.getByRole('button', { name: '开始游戏', exact: true }).click();
+  await page.getByTestId('doudizhu-table').waitFor();
+  const { io } = await import('socket.io-client');
+  const { doudizhu } = await import('../dist/server/shared/games/doudizhu/index.js');
+  const token = await page.evaluate(() => localStorage.getItem('playroom-token')),
+    socket = io(`http://localhost:${port}`, { auth: { token }, transports: ['websocket'] });
+  const request = (event, payload) =>
+    new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error(`production ${event} timeout`)), 10000);
+      socket.emit(event, payload, (result) => {
+        clearTimeout(timer);
+        result.ok ? resolve(result.data) : reject(new Error(result.error));
+      });
+    });
+  try {
+    await new Promise((resolve, reject) => {
+      socket.once('connect', resolve);
+      socket.once('connect_error', reject);
+    });
+    const roomId = page.url().split('/').at(-1);
+    let actions = 0;
+    while (actions++ < 8) {
+      const r = await request('room:sync', { roomId });
+      const game = r.game;
+      if (game.phase === 'finished') break;
+      if (game.currentPlayerId === r.hostId)
+        await request('game:action', {
+          roomId,
+          revision: r.revision,
+          action: doudizhu.aiMove(game, r.hostId, 'medium'),
+        });
+      else {
+        const start = Date.now();
+        let changed = false;
+        while (Date.now() - start < 10000) {
+          await new Promise((resolve) => setTimeout(resolve, 200));
+          if ((await request('room:sync', { roomId })).game.turnNumber > game.turnNumber) {
+            changed = true;
+            break;
+          }
+        }
+        assert.equal(changed, true);
+      }
+    }
+    assert.equal((await request('room:sync', { roomId })).game.phase, 'playing');
+    await page.getByTestId('performance-bar').waitFor();
+    await page.waitForFunction(() =>
+      /^\d+$/.test(document.querySelector('[data-testid="performance-rtt"]')?.textContent ?? ''),
+    );
+  } finally {
+    socket.disconnect();
+  }
   assert.deepEqual(errors, []);
   console.log(
-    'PASS: compiled Express SPA, deep routes, Socket.IO, UNO WAV; Gomoku and Xiangqi lazy tables/compiled hard-AI workers; cannon capture effects, reconnect, resign, endgame checkmate; zero browser errors.',
+    'PASS: compiled Express SPA, deep routes, Socket.IO, UNO/clown WAV and RTT monitor; Gomoku, Xiangqi and Doudizhu lazy tables/compiled hard-AI workers; cannon capture effects, reconnect, resign, endgame checkmate; zero browser errors.',
   );
 } finally {
   await browser?.close();

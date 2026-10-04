@@ -35,6 +35,8 @@ export function MatchResultDialog({
     draw = !!game && 'draw' in game && game.draw,
     host = room.hostId === me,
     puzzle = room.gameId === 'xiangqi' && room.options.xiangqi?.mode === 'puzzle';
+  const ddz = game && 'kind' in game && game.kind === 'doudizhu' ? game : null;
+  const won = ddz ? ddz.winnerIds.includes(me ?? '') : winner?.id === me;
   async function rematch() {
     setBusy(true);
     await perform(() => request((ack) => socket.emit('room:rematch', { roomId: room.id }, ack)));
@@ -54,11 +56,13 @@ export function MatchResultDialog({
         <DialogTitle className="modal-title text-center">
           {draw
             ? '平局，棋逢对手'
-            : winner?.id === me
+            : won
               ? puzzle
                 ? '残局已解开！'
                 : '恭喜你，拿下这一局！'
-              : `${winner?.name ?? '对手'} 获胜`}
+              : ddz
+                ? `${ddz.winningTeam === 'landlord' ? '地主' : '农民'} 阵营获胜`
+                : `${winner?.name ?? '对手'} 获胜`}
         </DialogTitle>
         <DialogDescription className="winner-desc">
           {puzzle
@@ -75,6 +79,26 @@ export function MatchResultDialog({
             </>
           )}
         </DialogDescription>
+        {ddz && (
+          <div className="ddz-scoreboard">
+            <p>
+              底分 {ddz.highestBid} × {ddz.multiplier} 倍
+              {ddz.spring ? ` · ${ddz.spring === 'spring' ? '春天' : '反春天'}` : ''}
+            </p>
+            {room.players.map((p) => (
+              <div key={p.id}>
+                <span>
+                  {p.name} · {p.id === ddz.landlordId ? '地主' : '农民'}
+                </span>
+                <b className={ddz.scores[p.id] > 0 ? 'positive' : 'negative'}>
+                  {ddz.scores[p.id] > 0 ? '+' : ''}
+                  {ddz.scores[p.id]} 分
+                </b>
+              </div>
+            ))}
+            <small>对局分为本场零和计分；大厅胜者 +30 战绩积分 / +100 金币，败者 +5 / +10。</small>
+          </div>
+        )}
         <div className="match-result-actions">
           {host && (
             <Button disabled={busy || !connected || !room.resultSaved} onClick={() => void rematch()}>
@@ -95,7 +119,7 @@ export function MatchResultDialog({
           </Button>
           <Button variant="ghost" onClick={() => setDismissed(room.matchId)}>
             <Eye size={16} />
-            查看{room.gameId === 'uno' ? '牌桌' : '棋盘'}
+            查看{room.gameId === 'uno' || room.gameId === 'doudizhu' ? '牌桌' : '棋盘'}
           </Button>
         </div>
       </DialogContent>

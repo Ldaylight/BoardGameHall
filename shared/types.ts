@@ -57,7 +57,22 @@ export interface GameLog {
   id: string;
   text: string;
   event?: {
-    type: 'play' | 'draw' | 'uno' | 'win' | 'pass' | 'penalty' | 'place' | 'draw-game' | 'xiangqi-move';
+    type:
+      | 'play'
+      | 'draw'
+      | 'uno'
+      | 'win'
+      | 'pass'
+      | 'penalty'
+      | 'place'
+      | 'draw-game'
+      | 'xiangqi-move'
+      | 'ddz-bid'
+      | 'ddz-deal'
+      | 'ddz-landlord'
+      | 'ddz-pass'
+      | 'ddz-play'
+      | 'ddz-win';
     playerId: string;
     value?: import('./games/uno/index.js').Value;
     count?: number;
@@ -67,6 +82,7 @@ export interface GameLog {
     from?: { x: number; y: number };
     to?: { x: number; y: number };
     check?: boolean;
+    combo?: import('./games/doudizhu/types.js').ComboKind;
   };
 }
 export interface RoomSummary {
@@ -82,15 +98,18 @@ export interface RoomSummary {
 export type GameView =
   | import('./games/uno/index.js').UnoView
   | import('./games/gomoku/types.js').GomokuView
-  | import('./games/xiangqi/types.js').XiangqiView;
+  | import('./games/xiangqi/types.js').XiangqiView
+  | import('./games/doudizhu/types.js').DoudizhuView;
 export type GameState =
   | import('./games/uno/index.js').UnoState
   | import('./games/gomoku/types.js').GomokuState
-  | import('./games/xiangqi/types.js').XiangqiState;
+  | import('./games/xiangqi/types.js').XiangqiState
+  | import('./games/doudizhu/types.js').DoudizhuState;
 export type GameAction =
   | import('./games/uno/index.js').UnoAction
   | import('./games/gomoku/types.js').GomokuAction
-  | import('./games/xiangqi/types.js').XiangqiAction;
+  | import('./games/xiangqi/types.js').XiangqiAction
+  | import('./games/doudizhu/types.js').DoudizhuAction;
 export interface RoomView<View extends GameView = GameView> extends RoomSummary {
   hostId: string;
   options: RoomOptions;
@@ -119,6 +138,7 @@ export interface ProfileData {
 export type Result<T> = { ok: true; data: T } | { ok: false; error: string };
 export type Ack<T> = (result: Result<T>) => void;
 export interface ClientEvents {
+  'system:ping': (ack: (serverTime: number) => void) => void;
   'room:current': (ack: Ack<RoomView | null>) => void;
   'room:create': (options: RoomOptions, ack: Ack<RoomView>) => void;
   'room:join': (payload: { code: string; spectate?: boolean }, ack: Ack<RoomView>) => void;

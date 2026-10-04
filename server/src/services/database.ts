@@ -3,6 +3,7 @@ import { PrismaClient, type Prisma } from '@prisma/client';
 import { config } from '../config.js';
 import type { ChatMessage, Player, ProfileData, Session, User } from '../../../shared/types.js';
 import type { StoredRoom } from './store.js';
+import { wonGame } from '../../../shared/games/index.js';
 export const prisma = config.demo ? null : new PrismaClient();
 const hash = (token: string) => createHash('sha256').update(token).digest('hex');
 const users = new Map<string, User>();
@@ -127,7 +128,7 @@ export async function finishMatch(room: StoredRoom) {
     for (const p of room.players.filter((p) => !p.isAI && !training)) {
       const u = users.get(p.id);
       if (u) {
-        u.coins += p.id === winnerId ? 100 : 10;
+        u.coins += wonGame(room.game, p.id) ? 100 : 10;
         u.level++;
       }
     }
@@ -145,43 +146,58 @@ export async function finishMatch(room: StoredRoom) {
         winnerId,
         startedAt: new Date(room.startedAt!),
         publicResult:
-          'kind' in room.game! && room.game.kind === 'xiangqi'
+          'kind' in room.game! && room.game.kind === 'doudizhu'
             ? (JSON.parse(
                 JSON.stringify({
                   winnerId,
-                  draw: room.game.draw,
-                  reason: room.game.endReason,
-                  turns: room.game.turnNumber,
+                  winnerIds: room.game.winnerIds,
+                  winningTeam: room.game.winningTeam,
+                  landlordId: room.game.landlordId,
+                  bid: room.game.highestBid,
+                  multiplier: room.game.multiplier,
+                  spring: room.game.spring,
+                  scores: room.game.scores,
                   moves: room.game.moves,
-                  options: room.game.options,
+                  kitty: room.game.kitty,
                 }),
               ) as Prisma.InputJsonValue)
-            : 'kind' in room.game! && room.game.kind === 'gomoku'
-              ? {
-                  winnerId,
-                  draw: room.game.draw,
-                  reason: room.game.endReason,
-                  turns: room.game.turnNumber,
-                  moves: room.game.moves.map((move) => ({ ...move })),
-                  options: { ...room.game.options },
-                  winningLine: room.game.winningLine.map((point) => ({ ...point })),
-                }
-              : { winnerId, turns: room.game!.turnNumber },
+            : 'kind' in room.game! && room.game.kind === 'xiangqi'
+              ? (JSON.parse(
+                  JSON.stringify({
+                    winnerId,
+                    draw: room.game.draw,
+                    reason: room.game.endReason,
+                    turns: room.game.turnNumber,
+                    moves: room.game.moves,
+                    options: room.game.options,
+                  }),
+                ) as Prisma.InputJsonValue)
+              : 'kind' in room.game! && room.game.kind === 'gomoku'
+                ? {
+                    winnerId,
+                    draw: room.game.draw,
+                    reason: room.game.endReason,
+                    turns: room.game.turnNumber,
+                    moves: room.game.moves.map((move) => ({ ...move })),
+                    options: { ...room.game.options },
+                    winningLine: room.game.winningLine.map((point) => ({ ...point })),
+                  }
+                : { winnerId, turns: room.game!.turnNumber },
         players: {
           create: room.players.map((p) => ({
             userId: p.isAI ? null : p.id,
             playerId: p.id,
             name: p.name,
             isAI: p.isAI,
-            won: p.id === winnerId,
-            score: training ? 0 : p.id === winnerId ? 30 : 5,
-            coinsDelta: p.isAI || training ? 0 : p.id === winnerId ? 100 : 10,
+            won: wonGame(room.game, p.id),
+            score: training ? 0 : wonGame(room.game, p.id) ? 30 : 5,
+            coinsDelta: p.isAI || training ? 0 : wonGame(room.game, p.id) ? 100 : 10,
           })),
         },
       },
     });
     for (const p of room.players.filter((p) => !p.isAI && !training)) {
-      const won = p.id === winnerId;
+      const won = wonGame(room.game, p.id);
       const coins = won ? 100 : 10;
       const score = won ? 30 : 5;
       await tx.user.update({
@@ -277,7 +293,7 @@ export async function profile(userId: string): Promise<ProfileData> {
       if (!u) continue;
       const r = ranking.get(p.id) ?? { user: { ...u }, wins: 0, played: 0, score: 0 };
       r.played++;
-      if (p.id === room.game?.winnerId) {
+      if (wonGame(room.game, p.id)) {
         r.wins++;
         r.score += 30;
       } else r.score += 5;
@@ -296,12 +312,14 @@ export async function profile(userId: string): Promise<ProfileData> {
             ? '中国象棋'
             : m.room.options.gameId === 'gomoku'
               ? '五子棋'
-              : 'UNO',
-        won: m.room.game?.winnerId === userId,
+              : m.room.options.gameId === 'doudizhu'
+                ? '斗地主'
+                : 'UNO',
+        won: wonGame(m.room.game, userId),
         draw: !!m.room.game && 'draw' in m.room.game && m.room.game.draw,
         createdAt: m.endedAt,
-        score: isTraining(m.room) ? 0 : m.room.game?.winnerId === userId ? 30 : 5,
-        coinsDelta: isTraining(m.room) ? 0 : m.room.game?.winnerId === userId ? 100 : 10,
+        score: isTraining(m.room) ? 0 : wonGame(m.room.game, userId) ? 30 : 5,
+        coinsDelta: isTraining(m.room) ? 0 : wonGame(m.room.game, userId) ? 100 : 10,
         training: isTraining(m.room),
       })),
     friends: [...(friends.get(userId) ?? [])].map((id) => users.get(id)!).filter(Boolean),

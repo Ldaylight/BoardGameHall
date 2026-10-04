@@ -66,6 +66,49 @@ async function level(page: Page) {
   });
 }
 
+test('UNO reverse, color switch and clown voice produce audio, and mute cancels scheduled sounds', async ({
+  page,
+}) => {
+  const errors: string[] = [];
+  page.on('pageerror', (e) => errors.push(e.message));
+  page.on('console', (m) => {
+    if (m.type() === 'error') errors.push(m.text());
+  });
+  await probe(page);
+  await page.goto('/settings');
+  await page.locator('.audio-status').getByRole('button', { name: '开启声音' }).click();
+  await page.getByRole('switch', { name: '背景音乐', exact: true }).click();
+  await expect.poll(() => level(page)).toBeLessThan(0.0001);
+  const response = await page.request.get('/audio/joker-laugh.wav');
+  expect(response.status()).toBe(200);
+  const wave = await response.body();
+  expect(wave.subarray(0, 4).toString()).toBe('RIFF');
+  expect(wave.subarray(8, 12).toString()).toBe('WAVE');
+  const fixtureUrl = `/@fs/${process.cwd().replace(/\\/g, '/')}/tests/fixtures/audio-effects.ts`;
+  for (const effect of ['reverse', 'wild', 'joker-laugh']) {
+    const unlocked = await page.evaluate(
+      async ({ effect, url }) => {
+        const fixture = await import(/* @vite-ignore */ url);
+        return fixture.playEffect(effect, 0.12);
+      },
+      { effect, url: fixtureUrl },
+    );
+    expect(unlocked).toBe(true);
+    await expect
+      .poll(() => level(page), { intervals: [20, 30, 40, 60, 80], timeout: 2000 })
+      .toBeGreaterThan(0.001);
+    await page.waitForTimeout(1900);
+  }
+  await page.evaluate(async (url) => {
+    const fixture = await import(/* @vite-ignore */ url);
+    fixture.playEffect('joker-laugh', 0.5);
+  }, fixtureUrl);
+  await page.getByRole('button', { name: '静音所有声音', exact: true }).click();
+  await page.waitForTimeout(650);
+  expect(await level(page)).toBeLessThan(0.0001);
+  expect(errors).toEqual([]);
+});
+
 test('audio produces a real signal, mutes, persists controls and imports local music across refresh', async ({
   page,
 }) => {

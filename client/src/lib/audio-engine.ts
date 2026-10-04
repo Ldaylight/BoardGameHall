@@ -18,6 +18,10 @@ export type SoundEffect =
   | 'draw2'
   | 'wild'
   | 'wild4'
+  | 'joker-laugh'
+  | 'ddz-bomb'
+  | 'ddz-rocket'
+  | 'ddz-plane'
   | 'uno'
   | 'tick'
   | 'urgent'
@@ -35,6 +39,8 @@ class AudioEngine {
   private noise: AudioBuffer | null = null;
   private voice: AudioBuffer | null = null;
   private voiceLoading = false;
+  private laughter: AudioBuffer | null = null;
+  private laughterLoading = false;
   private sources = new Set<AudioScheduledSourceNode>();
   private musicSources = new Set<AudioScheduledSourceNode>();
   private musicTimer: ReturnType<typeof setInterval> | undefined;
@@ -83,6 +89,7 @@ class AudioEngine {
       if (useAudio.getState().status !== 'error') useAudio.getState().setStatus('ready');
       this.configure();
       this.loadVoice();
+      this.loadLaughter();
     } catch {
       useAudio.getState().setStatus('locked', '点击播放按钮重试开启声音。');
     }
@@ -269,17 +276,39 @@ class AudioEngine {
         chord([79, 67, 55], 0.05, 0.15);
         break;
       case 'reverse':
+        this.swish(delay, 0.17);
         this.tone(60, delay, 0.16, 0.16, 'triangle', false, 84);
         this.tone(84, delay + 0.16, 0.18, 0.14, 'triangle', false, 60);
+        this.swish(delay + 0.18, 0.15);
         break;
       case 'draw2':
         chord([55, 62, 67], 0.09, 0.24);
         break;
       case 'wild':
+        this.swish(delay, 0.23);
         chord([72, 76, 79, 84], 0.07, 0.32);
+        this.tone(96, delay + 0.3, 0.45, 0.07, 'sine', false, 84);
         break;
       case 'wild4':
         chord([48, 55, 60, 67, 72, 79], 0.065, 0.3, 0.18);
+        break;
+      case 'joker-laugh':
+        this.laugh(delay);
+        break;
+      case 'ddz-bomb':
+        this.tone(48, delay, 0.23, 0.13, 'sawtooth', false, 60);
+        this.impact(delay + 0.22, 0.75, 1400, 0.28);
+        this.tone(35, delay + 0.22, 0.6, 0.22, 'sine', false, 22);
+        break;
+      case 'ddz-rocket':
+        this.swish(delay, 0.4);
+        this.tone(42, delay, 0.45, 0.12, 'triangle', false, 90);
+        this.impact(delay + 0.4, 0.8, 2000, 0.24);
+        chord([72, 79, 84], 0.09, 0.4, 0.1);
+        break;
+      case 'ddz-plane':
+        this.swish(delay, 0.4);
+        this.tone(48, delay, 0.5, 0.09, 'triangle', false, 75);
         break;
       case 'tick':
         if (p.countdownEnabled) this.tone(77, delay, 0.035, 0.065);
@@ -324,6 +353,51 @@ class AudioEngine {
       .finally(() => {
         this.voiceLoading = false;
       });
+  }
+
+  private loadLaughter() {
+    if (this.laughter || this.laughterLoading || !this.context) return;
+    this.laughterLoading = true;
+    void fetch('/audio/joker-laugh.wav')
+      .then((r) => {
+        if (!r.ok) throw new Error('laughter');
+        return r.arrayBuffer();
+      })
+      .then((b) => this.context!.decodeAudioData(b))
+      .then((b) => {
+        this.laughter = b;
+      })
+      .catch(() => {})
+      .finally(() => {
+        this.laughterLoading = false;
+      });
+  }
+  private laugh(delay: number) {
+    const ctx = this.context,
+      bus = this.effectsBus;
+    if (!ctx || !bus) return;
+    if (this.laughter) {
+      const source = ctx.createBufferSource(),
+        gain = ctx.createGain(),
+        echo = ctx.createDelay(0.5),
+        echoGain = ctx.createGain();
+      source.buffer = this.laughter;
+      source.playbackRate.value = 0.86;
+      gain.gain.value = 0.7;
+      echo.delayTime.value = 0.16;
+      echoGain.gain.value = 0.18;
+      source.connect(gain).connect(bus);
+      gain.connect(echo).connect(echoGain).connect(bus);
+      this.register(source, [gain, echo, echoGain], false);
+      source.start(ctx.currentTime + delay);
+    } else {
+      this.loadLaughter();
+      // Immediate three-burst vocal-like fallback; do not enqueue late audio after mute/reconnect.
+      for (let i = 0; i < 4; i++) {
+        this.tone(55 + (i % 2) * 4, delay + i * 0.16, 0.14, 0.09, 'sawtooth', false, 48 + (i % 2) * 3);
+        this.impact(delay + i * 0.16, 0.055, 700, 0.055);
+      }
+    }
   }
 
   private sayUno(delay: number) {

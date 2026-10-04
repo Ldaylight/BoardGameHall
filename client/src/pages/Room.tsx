@@ -37,7 +37,9 @@ export function Room() {
   const humansReady = room.players.filter((p) => !p.isAI).every((p) => p.ready);
   const isGomoku = room.gameId === 'gomoku';
   const isXiangqi = room.gameId === 'xiangqi';
-  const gameName = isXiangqi ? '中国象棋' : isGomoku ? '五子棋' : 'UNO';
+  const isDoudizhu = room.gameId === 'doudizhu';
+  const minPlayers = isDoudizhu ? 3 : 2;
+  const gameName = isDoudizhu ? '斗地主' : isXiangqi ? '中国象棋' : isGomoku ? '五子棋' : 'UNO';
   const rules = { ...defaultGomokuOptions, ...room.options.gomoku };
   async function execute(task: () => Promise<unknown>) {
     setBusy(true);
@@ -186,7 +188,8 @@ export function Room() {
                   <option value="easy">AI · 简单</option>
                   <option value="medium">AI · 中等</option>
                   <option value="hard">
-                    AI · 困难{isGomoku || isXiangqi ? '（Alpha-Beta）' : '（中等策略）'}
+                    AI · 困难
+                    {isDoudizhu ? '（组合搜索）' : isGomoku || isXiangqi ? '（Alpha-Beta）' : '（中等策略）'}
                   </option>
                 </select>
               )}
@@ -207,7 +210,11 @@ export function Room() {
               {host && (
                 <Button
                   disabled={
-                    busy || !connected || !humansReady || room.playerCount < 2 || room.status !== 'waiting'
+                    busy ||
+                    !connected ||
+                    !humansReady ||
+                    room.playerCount < minPlayers ||
+                    room.status !== 'waiting'
                   }
                   onClick={() =>
                     void execute(() => request((ack) => socket.emit('room:start', { roomId: room.id }, ack)))
@@ -235,16 +242,18 @@ export function Room() {
                 ? '本局已结束，房主可重置房间开始下一局。'
                 : !me
                   ? '你正在观战。牌局开始后将自动进入游戏桌。'
-                  : room.playerCount < 2
-                    ? '至少需要 2 位玩家。邀请朋友，或添加一个 AI 伙伴。'
+                  : room.playerCount < minPlayers
+                    ? `至少需要 ${minPlayers} 位玩家。邀请朋友，或添加 AI 伙伴。`
                     : !humansReady
                       ? '等待所有真人玩家准备。AI 已经迫不及待了。'
                       : '大家都准备好了，房主可以开始！'}{' '}
-              {isXiangqi
-                ? '困难 AI 使用迭代加深 Alpha-Beta 搜索；残局可准备后重新开始。'
-                : isGomoku
-                  ? '困难 AI 使用 4–6 层 Alpha-Beta 搜索。'
-                  : '困难 AI 当前使用中等策略。'}
+              {isDoudizhu
+                ? '困难 AI 搜索自己的合法组合，农民会配合队友；不会读取对手手牌。'
+                : isXiangqi
+                  ? '困难 AI 使用迭代加深 Alpha-Beta 搜索；残局可准备后重新开始。'
+                  : isGomoku
+                    ? '困难 AI 使用 4–6 层 Alpha-Beta 搜索。'
+                    : '困难 AI 当前使用中等策略。'}
             </p>
           </section>
           <section className="panel rules-panel">
@@ -252,7 +261,20 @@ export function Room() {
               <Layers3 size={18} />
               {gameName} · 本大厅规则
             </h2>
-            {isXiangqi ? (
+            {isDoudizhu ? (
+              <>
+                <div className="rule-tags">
+                  <span>3 人 · 54 张牌</span>
+                  <span>叫分 1 / 2 / 3</span>
+                  <span>地主 20 张 · 农民 17 张</span>
+                  <span>免费开局</span>
+                </div>
+                <p>
+                  每人叫分一次，只能叫更高分，三家不叫重新发牌。地主先出，按座位顺序轮转；相同牌型和张数才能比较，炸弹压普通牌，王炸最大。两家连续不出，上一手玩家重新领出。任一农民出完，两位农民共同获胜。炸弹、王炸、春天翻倍。本桌采用独立单翼：飞机带单牌不得带对子或双王，四带二单不得带对子或王；四带二对须为两组不同对子。叫分
+                  20 秒、出牌 45 秒，超时或离线由 AI 代打。对局分和大厅战绩积分分别显示。
+                </p>
+              </>
+            ) : isXiangqi ? (
               <>
                 <div className="rule-tags">
                   <span>9 × 10 棋盘</span>

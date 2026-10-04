@@ -33,6 +33,7 @@ export function CreateRoomDialog({
   }, [open, initialGame]);
   useEffect(() => {
     if (gameId === 'gomoku' || gameId === 'xiangqi') setMaxPlayers(2);
+    if (gameId === 'doudizhu') setMaxPlayers(3);
   }, [gameId]);
   const connected = useApp((s) => s.connected);
   async function create() {
@@ -44,7 +45,7 @@ export function CreateRoomDialog({
           {
             gameId,
             name,
-            maxPlayers: gameId !== 'uno' ? 2 : maxPlayers,
+            maxPlayers: gameId === 'doudizhu' ? 3 : gameId !== 'uno' ? 2 : maxPlayers,
             allowAI,
             allowSpectators,
             difficulty,
@@ -103,7 +104,7 @@ export function CreateRoomDialog({
             <label>
               座位数量
               <select value={maxPlayers} onChange={(e) => setMaxPlayers(Number(e.target.value))}>
-                {(gameId !== 'uno' ? [2] : [2, 3, 4, 5, 6]).map((n) => (
+                {(gameId === 'doudizhu' ? [3] : gameId !== 'uno' ? [2] : [2, 3, 4, 5, 6]).map((n) => (
                   <option key={n} value={n}>
                     {n} 人
                   </option>
@@ -113,10 +114,19 @@ export function CreateRoomDialog({
             <label>
               AI 难度
               <select value={difficulty} onChange={(e) => setDifficulty(e.target.value as Difficulty)}>
-                <option value="easy">简单 · {gameId !== 'uno' ? '随机落子' : '随机出牌'}</option>
-                <option value="medium">中等 · {gameId !== 'uno' ? '进攻与防守' : '策略出牌'}</option>
+                <option value="easy">
+                  简单 · {gameId === 'gomoku' || gameId === 'xiangqi' ? '随机落子' : '随机出牌'}
+                </option>
+                <option value="medium">
+                  中等 · {gameId === 'doudizhu' ? '搭档策略' : gameId !== 'uno' ? '进攻与防守' : '策略出牌'}
+                </option>
                 <option value="hard">
-                  困难 · {gameId !== 'uno' ? 'Alpha-Beta 搜索' : '预留（当前中等）'}
+                  困难 ·{' '}
+                  {gameId === 'doudizhu'
+                    ? '组合搜索'
+                    : gameId !== 'uno'
+                      ? 'Alpha-Beta 搜索'
+                      : '预留（当前中等）'}
                 </option>
               </select>
             </label>
