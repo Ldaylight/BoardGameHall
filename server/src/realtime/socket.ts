@@ -8,6 +8,10 @@ const id = z.string().uuid();
 const room = z.object({ roomId: id });
 const action = z.union([
   z
+    .object({ type: z.enum(['poker:fold', 'poker:check', 'poker:call', 'poker:all-in', 'poker:next']) })
+    .strict(),
+  z.object({ type: z.literal('poker:raise'), amount: z.number().int().min(1).max(60000) }).strict(),
+  z
     .object({
       type: z.literal('ek:play'),
       cardIds: z.array(z.string().min(1).max(30)).min(1).max(3),
@@ -124,6 +128,15 @@ export function registerSockets(io: GameServer, rooms: RoomService) {
               allowAI: z.boolean(),
               allowSpectators: z.boolean(),
               difficulty,
+              holdem: z
+                .object({
+                  startingStack: z.number().int().min(100).max(10000).optional(),
+                  smallBlind: z.number().int().min(1).max(5000).optional(),
+                  blindEvery: z.number().int().min(1).max(20).optional(),
+                  turnSeconds: z.number().int().min(15).max(120).optional(),
+                })
+                .strict()
+                .optional(),
               xiangqi: z
                 .object({
                   mode: z.enum(['standard', 'puzzle']).optional(),

@@ -66,7 +66,7 @@ async function level(page: Page) {
   });
 }
 
-test('all thirteen kitten card effects emit audio, CC0 samples decode and mute cancels queued samples', async ({
+test('all kitten/poker effects emit audio, CC0 samples decode and mute cancels queued samples', async ({
   page,
 }) => {
   const errors: string[] = [];
@@ -85,6 +85,12 @@ test('all thirteen kitten card effects emit audio, CC0 samples decode and mute c
     await fixture.preloadKittenEffects();
   }, fixtureUrl);
   for (const kind of [
+    'poker-chip',
+    'poker-check',
+    'poker-fold',
+    'poker-all-in',
+    'poker-board',
+    'poker-payout',
     'explode',
     'defuse',
     'attack',
@@ -102,7 +108,7 @@ test('all thirteen kitten card effects emit audio, CC0 samples decode and mute c
     await page.evaluate(
       async ({ url, kind }) => {
         const fixture = await import(/* @vite-ignore */ url);
-        fixture.playEffect(`ek-${kind}`, 0.08);
+        fixture.playEffect(kind.startsWith('poker-') ? kind : `ek-${kind}`, 0.08);
       },
       { url: fixtureUrl, kind },
     );

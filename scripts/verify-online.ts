@@ -7,6 +7,8 @@ import type { ClientEvents, Result, RoomView, ServerEvents, Session, ProfileData
 import { uno } from '../shared/games/uno/index.js';
 import { unoView, xiangqiView, doudizhuView, kittensView } from '../shared/games/views.js';
 import { doudizhu } from '../shared/games/doudizhu/index.js';
+import { holdem } from '../shared/games/holdem/index.js';
+import { holdemView } from '../shared/games/views.js';
 import { kittens } from '../shared/games/exploding-kittens/index.js';
 const port = 3099;
 const base = `http://localhost:${port}`;
@@ -613,6 +615,108 @@ try {
   console.log(
     `PASS: Kittens MySQL 3-human game (${kSteps} actions), private reconnect, Unicode chat, public-only replay, eliminated-player records, exactly-once rewards/ranking and rematch.`,
   );
+  {
+    const beforePoker = await Promise.all(
+      ddzUsers.map((u) => api<ProfileData>('/profile', 'GET', undefined, u.token)),
+    );
+    for (const socket of ddzSockets)
+      await request((ack) => socket.emit('room:leave', { roomId: kr.id }, ack));
+    const pr = await request<RoomView>((ack) =>
+      sa.emit(
+        'room:create',
+        {
+          gameId: 'holdem',
+          name: 'MySQL 德州验收',
+          maxPlayers: 3,
+          allowAI: true,
+          allowSpectators: true,
+          difficulty: 'hard',
+        },
+        ack,
+      ),
+    );
+    roomIds.push(pr.id);
+    for (const socket of [sb, ss]) await request((ack) => socket.emit('room:join', { code: pr.code }, ack));
+    for (const socket of ddzSockets)
+      await request((ack) => socket.emit('room:ready', { roomId: pr.id, ready: true }, ack));
+    await request((ack) => sa.emit('room:start', { roomId: pr.id }, ack));
+    const syncP = (i = 0) =>
+      request<RoomView>((ack) => ddzSockets[i].emit('room:sync', { roomId: pr.id }, ack));
+    const pokerHand = holdemView(await syncP()).hand;
+    sa.disconnect();
+    sa = await connect(a);
+    ddzSockets[0] = sa;
+    assert.deepEqual(holdemView(await syncP()).hand, pokerHand);
+    assert.ok(!JSON.stringify(holdemView(await syncP(1))).includes(pokerHand[0].id));
+    await request((ack) => sa.emit('room:chat', { roomId: pr.id, text: '全下，边池独立结算 🃏' }, ack));
+    for (let step = 0; step < 100; step++) {
+      const r = await syncP(),
+        g = holdemView(r);
+      if (g.winnerId) break;
+      assert.equal('hands' in g || 'deck' in g || 'burned' in g, false);
+      assert.equal(Object.values(g.stacks).reduce((x, y) => x + y, 0) + g.pot, 3000);
+      assert.equal(await db.match.count({ where: { roomId: pr.id } }), 0);
+      const index = ddzUsers.findIndex((u) => u.user.id === g.currentPlayerId);
+      const own = holdemView(await syncP(index));
+      if (g.phase === 'showdown') {
+        const remaining = Math.max(0, g.turnDeadline - 3000 - Date.now());
+        if (remaining) await wait(remaining + 20);
+        await request((ack) =>
+          ddzSockets[index].emit(
+            'game:action',
+            { roomId: pr.id, revision: r.revision, action: { type: 'poker:next' } },
+            ack,
+          ),
+        );
+      } else {
+        const legal = holdem.getLegalActions(own, g.currentPlayerId);
+        const action =
+          legal.find((a) => a.type === 'poker:all-in') ??
+          legal.find((a) => a.type === 'poker:call' || a.type === 'poker:check')!;
+        await request((ack) =>
+          ddzSockets[index].emit('game:action', { roomId: pr.id, revision: r.revision, action }, ack),
+        );
+      }
+    }
+    const pokerEnded = await syncP(),
+      pg = holdemView(pokerEnded);
+    assert.ok(pg.winnerId);
+    assert.equal(pokerEnded.resultSaved, true);
+    const record = await db.match.findUniqueOrThrow({
+      where: { id: pokerEnded.matchId! },
+      include: { players: true },
+    });
+    assert.equal(record.gameId, 'holdem');
+    assert.equal(record.players.length, 3);
+    assert.equal(record.players.filter((p) => p.won).length, 1);
+    const replay = record.publicResult as Record<string, unknown>;
+    for (const field of ['hands', 'deck', 'burned']) assert.equal(field in replay, false);
+    assert.ok(Array.isArray(replay.rounds));
+    for (let i = 0; i < ddzUsers.length; i++) {
+      const uid = ddzUsers[i].user.id,
+        won: boolean = uid === pg.winnerId,
+        p = record.players.find((p) => p.playerId === uid)!;
+      assert.equal(p.won, won);
+      assert.equal(p.coinsDelta, won ? 100 : 10);
+      const profile = await api<ProfileData>('/profile', 'GET', undefined, ddzUsers[i].token);
+      assert.equal(profile.user.coins, beforePoker[i].user.coins + (won ? 100 : 10));
+      assert.equal(profile.matches.find((m) => m.id === pokerEnded.matchId)?.gameName, '德州扑克');
+      const rank = await db.ranking.findUniqueOrThrow({
+        where: { userId_gameId: { userId: uid, gameId: 'holdem' } },
+      });
+      assert.equal(rank.played, 1);
+      assert.equal(rank.wins, won ? 1 : 0);
+    }
+    await syncP();
+    await syncP();
+    assert.equal(await db.match.count({ where: { roomId: pr.id } }), 1);
+    assert.equal(await db.chatMessage.count({ where: { roomId: pr.id } }), 1);
+    await request((ack) => sa.emit('room:rematch', { roomId: pr.id }, ack));
+    assert.equal((await syncP()).game, null);
+    console.log(
+      'PASS: Holdem MySQL 3-human tournament, secret hole cards/reconnect, public showdown replay, conserved virtual chips, exactly-once final rewards/ranking, chat and rematch.',
+    );
+  }
   console.log(
     `PASS: Doudizhu 3-human MySQL game (${dSteps} actions), bidding/private hand/reconnect, team ${dg.winningTeam}, public replay/scores, all 3 MatchPlayers, exactly-once rankings and rewards, rematch.`,
   );

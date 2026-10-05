@@ -9,6 +9,22 @@ export interface AudioCue {
 export function eventCues(event: GameLog['event'], me?: string): AudioCue[] {
   if (!event) return [];
   switch (event.type) {
+    case 'poker-deal':
+      return [{ effect: 'deal' }];
+    case 'poker-blind':
+    case 'poker-call':
+    case 'poker-raise':
+      return [{ effect: 'poker-chip' }];
+    case 'poker-check':
+      return [{ effect: 'poker-check' }];
+    case 'poker-fold':
+      return [{ effect: 'poker-fold' }];
+    case 'poker-all-in':
+      return [{ effect: 'poker-all-in' }];
+    case 'poker-board':
+      return [{ effect: 'poker-board' }];
+    case 'poker-payout':
+      return [{ effect: 'poker-payout' }];
     case 'kitten-play':
       return [{ effect: 'ek-play' }];
     case 'kitten-draw':
@@ -121,7 +137,14 @@ export class GameAudioTracker {
       this.seen = new Set(game.logs.map((log) => log.id));
       this.currentPlayerId = game.currentPlayerId;
       this.tick = null;
-      if (first && connected && 'hand' in game && game.turnNumber === 0 && !game.winnerId)
+      if (
+        first &&
+        connected &&
+        'hand' in game &&
+        (game.turnNumber === 0 ||
+          ('kind' in game && game.kind === 'holdem' && game.handNumber === 1 && game.logSequence === 3)) &&
+        !game.winnerId
+      )
         cues.push({ effect: 'deal' });
       return cues;
     }
@@ -132,7 +155,11 @@ export class GameAudioTracker {
       for (const log of fresh) {
         if (log.event?.type === 'ddz-win' && 'kind' in game && game.kind === 'doudizhu')
           cues.push({ effect: game.winnerIds.includes(me ?? '') ? 'win' : 'lose', delay: 0.3 });
-        else cues.push(...eventCues(log.event, me));
+        else {
+          cues.push(...eventCues(log.event, me));
+          if (log.event?.type === 'poker-payout' && 'kind' in game && game.kind === 'holdem' && game.winnerId)
+            cues.push({ effect: game.winnerId === me ? 'win' : 'lose', delay: 0.6 });
+        }
       }
     if (this.currentPlayerId !== game.currentPlayerId && game.currentPlayerId === me && !game.winnerId)
       cues.push({ effect: 'turn', delay: 0.15 });

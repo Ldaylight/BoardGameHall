@@ -47,7 +47,11 @@ export function CreateRoomDialog({
             gameId,
             name,
             maxPlayers:
-              gameId === 'doudizhu' ? 3 : gameId === 'uno' || gameId === 'exploding-kittens' ? maxPlayers : 2,
+              gameId === 'doudizhu'
+                ? 3
+                : gameId === 'uno' || gameId === 'exploding-kittens' || gameId === 'holdem'
+                  ? maxPlayers
+                  : 2,
             allowAI,
             allowSpectators,
             difficulty,
@@ -110,7 +114,7 @@ export function CreateRoomDialog({
                   ? [3]
                   : gameId === 'exploding-kittens'
                     ? [2, 3, 4, 5]
-                    : gameId !== 'uno'
+                    : gameId !== 'uno' && gameId !== 'holdem'
                       ? [2]
                       : [2, 3, 4, 5, 6]
                 ).map((n) => (
@@ -128,27 +132,36 @@ export function CreateRoomDialog({
                 </option>
                 <option value="medium">
                   中等 ·{' '}
-                  {gameId === 'exploding-kittens'
-                    ? '风险与保牌'
-                    : gameId === 'doudizhu'
-                      ? '搭档策略'
-                      : gameId !== 'uno'
-                        ? '进攻与防守'
-                        : '策略出牌'}
+                  {gameId === 'holdem'
+                    ? '牌力与底池赔率'
+                    : gameId === 'exploding-kittens'
+                      ? '风险与保牌'
+                      : gameId === 'doudizhu'
+                        ? '搭档策略'
+                        : gameId !== 'uno'
+                          ? '进攻与防守'
+                          : '策略出牌'}
                 </option>
                 <option value="hard">
                   困难 ·{' '}
-                  {gameId === 'exploding-kittens'
-                    ? '风险启发式'
-                    : gameId === 'doudizhu'
-                      ? '组合搜索'
-                      : gameId !== 'uno'
-                        ? 'Alpha-Beta 搜索'
-                        : '预留（当前中等）'}
+                  {gameId === 'holdem'
+                    ? '蒙特卡洛胜率'
+                    : gameId === 'exploding-kittens'
+                      ? '风险启发式'
+                      : gameId === 'doudizhu'
+                        ? '组合搜索'
+                        : gameId !== 'uno'
+                          ? 'Alpha-Beta 搜索'
+                          : '预留（当前中等）'}
                 </option>
               </select>
             </label>
           </div>
+          {gameId === 'holdem' && (
+            <p className="form-note">
+              无限注锦标赛：每人 1,000 桌面筹码，盲注 10/20，每 4 手翻倍。筹码独立于大厅金币，不扣金币。
+            </p>
+          )}
           {gameId === 'xiangqi' && (
             <fieldset className="gomoku-options">
               <legend>中国象棋 · 标准对局</legend>

@@ -46,6 +46,7 @@ export interface RoomOptions {
   difficulty: Difficulty;
   gomoku?: Partial<import('./games/gomoku/types.js').GomokuOptions>;
   xiangqi?: Partial<import('./games/xiangqi/types.js').XiangqiOptions>;
+  holdem?: Partial<import('./games/holdem/types.js').HoldemOptions>;
 }
 export interface ChatMessage {
   id: string;
@@ -80,7 +81,16 @@ export interface GameLog {
       | 'kitten-defuse'
       | 'kitten-insert'
       | 'kitten-explode'
-      | 'kitten-win';
+      | 'kitten-win'
+      | 'poker-deal'
+      | 'poker-blind'
+      | 'poker-fold'
+      | 'poker-check'
+      | 'poker-call'
+      | 'poker-raise'
+      | 'poker-all-in'
+      | 'poker-board'
+      | 'poker-payout';
     playerId: string;
     value?: import('./games/uno/index.js').Value;
     count?: number;
@@ -110,19 +120,22 @@ export type GameView =
   | import('./games/gomoku/types.js').GomokuView
   | import('./games/xiangqi/types.js').XiangqiView
   | import('./games/doudizhu/types.js').DoudizhuView
-  | import('./games/exploding-kittens/types.js').KittensView;
+  | import('./games/exploding-kittens/types.js').KittensView
+  | import('./games/holdem/types.js').HoldemView;
 export type GameState =
   | import('./games/uno/index.js').UnoState
   | import('./games/gomoku/types.js').GomokuState
   | import('./games/xiangqi/types.js').XiangqiState
   | import('./games/doudizhu/types.js').DoudizhuState
-  | import('./games/exploding-kittens/types.js').KittensState;
+  | import('./games/exploding-kittens/types.js').KittensState
+  | import('./games/holdem/types.js').HoldemState;
 export type GameAction =
   | import('./games/uno/index.js').UnoAction
   | import('./games/gomoku/types.js').GomokuAction
   | import('./games/xiangqi/types.js').XiangqiAction
   | import('./games/doudizhu/types.js').DoudizhuAction
-  | import('./games/exploding-kittens/types.js').KittensAction;
+  | import('./games/exploding-kittens/types.js').KittensAction
+  | import('./games/holdem/types.js').HoldemAction;
 export interface RoomView<View extends GameView = GameView> extends RoomSummary {
   hostId: string;
   options: RoomOptions;

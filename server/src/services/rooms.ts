@@ -21,6 +21,7 @@ import {
   isXiangqi,
   isDoudizhu,
   isKittens,
+  isHoldem,
 } from '../../../shared/games/index.js';
 import { timeout } from '../../../shared/games/gomoku/index.js';
 import { computeGomokuMove } from './gomoku-ai.js';
@@ -29,6 +30,8 @@ import { endgames } from '../../../shared/games/xiangqi/endgames.js';
 import { computeXiangqiMove } from './xiangqi-ai.js';
 import { computeDoudizhuMove } from './doudizhu-ai.js';
 import { doudizhu } from '../../../shared/games/doudizhu/index.js';
+import { holdem, normalizeHoldemOptions } from '../../../shared/games/holdem/index.js';
+import { computeHoldemMove } from './holdem-ai.js';
 import {
   kittens,
   kittensActor,
@@ -128,8 +131,12 @@ export class RoomService {
     user = (await getUser(user.id)) ?? user;
     return this.store.lock(`user:${user.id}`, async () => {
       await this.noOtherSeat(user.id);
-      if (!['uno', 'gomoku', 'xiangqi', 'doudizhu', 'exploding-kittens'].includes(options.gameId))
+      if (!['uno', 'gomoku', 'xiangqi', 'doudizhu', 'exploding-kittens', 'holdem'].includes(options.gameId))
         throw new Error('该游戏尚未开放');
+      if (options.gameId === 'holdem') {
+        const h = normalizeHoldemOptions(options.holdem);
+        if (h.smallBlind * 2 > h.startingStack) throw Error('大盲注不能大于起始筹码');
+      }
       if (options.gameId === 'doudizhu' && options.maxPlayers !== 3) throw new Error('斗地主必须为 3 人');
       if (options.gameId === 'exploding-kittens' && options.maxPlayers > 5)
         throw new Error('炸弹猫经典版最多 5 人');
@@ -227,7 +234,7 @@ export class RoomService {
       const p = r.players.find((p) => p.id === user.id);
       if (p && !p.connected) {
         p.connected = true;
-        if (r.game && isKittens(r.game)) this.schedule(r);
+        if (r.game && (isKittens(r.game) || isHoldem(r.game))) this.schedule(r);
         else if (r.game?.players[r.game.currentIndex] === user.id) r.nextActionAt = null;
         await this.commit(r);
       }
@@ -309,11 +316,14 @@ export class RoomService {
       return;
     }
     const p = this.actor(r);
+    if (isHoldem(r.game) && r.game.phase === 'showdown') {
+      r.nextActionAt = r.game.turnDeadline;
+      return;
+    }
     r.nextActionAt =
       p &&
       (p.isAI || (!p.connected && !((isGomoku(r.game) || isXiangqi(r.game)) && r.game.options.timeoutLoss)))
-        ? Date.now() +
-          aiDelay(isGomoku(r.game) || isXiangqi(r.game) || isDoudizhu(r.game) || isKittens(r.game))
+        ? Date.now() + aiDelay(isGomoku(r.game) || isXiangqi(r.game) || isDoudizhu(r.game))
         : null;
   }
   private actor(r: StoredRoom) {
@@ -502,19 +512,23 @@ export class RoomService {
           r.status = 'finished';
           this.schedule(r);
         } else {
-          const action = isKittens(r.game)
-            ? kittens.aiMove(kittens.getView(r.game, p.id), p.id, p.difficulty)
-            : isDoudizhu(r.game)
-              ? await computeDoudizhuMove(doudizhu.getView(r.game, p.id), p.id, p.difficulty)
-              : isXiangqi(r.game)
-                ? await computeXiangqiMove(xiangqi.getView(r.game, p.id), p.id, p.difficulty)
-                : isGomoku(r.game)
-                  ? await computeGomokuMove(
-                      gameView(r.game, p.id) as import('../../../shared/games/gomoku/types.js').GomokuView,
-                      p.id,
-                      p.difficulty,
-                    )
-                  : uno.aiMove(uno.getView(r.game, p.id), p.id, p.difficulty);
+          const action = isHoldem(r.game)
+            ? r.game.phase === 'showdown'
+              ? { type: 'poker:next' as const }
+              : await computeHoldemMove(holdem.getView(r.game, p.id), p.id, p.difficulty)
+            : isKittens(r.game)
+              ? kittens.aiMove(kittens.getView(r.game, p.id), p.id, p.difficulty)
+              : isDoudizhu(r.game)
+                ? await computeDoudizhuMove(doudizhu.getView(r.game, p.id), p.id, p.difficulty)
+                : isXiangqi(r.game)
+                  ? await computeXiangqiMove(xiangqi.getView(r.game, p.id), p.id, p.difficulty)
+                  : isGomoku(r.game)
+                    ? await computeGomokuMove(
+                        gameView(r.game, p.id) as import('../../../shared/games/gomoku/types.js').GomokuView,
+                        p.id,
+                        p.difficulty,
+                      )
+                    : uno.aiMove(uno.getView(r.game, p.id), p.id, p.difficulty);
           this.applyAction(r, p.id, action, r.revision);
         }
         await this.commit(r);

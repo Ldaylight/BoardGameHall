@@ -69,10 +69,10 @@ export const games: GameMeta[] = [
     maxPlayers: 6,
     supportsAI: true,
     supportsMultiplayer: true,
-    available: false,
+    available: true,
     accent: '#7aa3b6',
     tag: '策略竞技',
-    description: '用筹码讲述你的故事。仅供休闲，无现金投注。',
+    description: '2–6 人无限注锦标赛，主池与边池独立结算。桌面筹码仅供休闲。',
     duration: '15–30 分钟',
   },
   {

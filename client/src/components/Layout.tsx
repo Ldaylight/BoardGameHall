@@ -397,7 +397,7 @@ function SocialDrawer({ open, onOpenChange }: { open: boolean; onOpenChange: (v:
           </div>
           <div className="announcement">
             <span>PLAYROOM 公告</span>
-            <p>UNO、五子棋、中国象棋、斗地主与炸弹猫已开放。邀请朋友，或添加 AI 一起玩。</p>
+            <p>UNO、五子棋、中国象棋、斗地主、炸弹猫与德州扑克已开放。邀请朋友，或添加 AI 一起玩。</p>
             <small>好游戏，好朋友，好时光。</small>
           </div>
         </DialogContent>

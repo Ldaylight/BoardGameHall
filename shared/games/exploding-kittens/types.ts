@@ -46,6 +46,7 @@ export interface KittenEvent {
   cards?: KittenCard[];
   targetId?: string;
   canceled?: boolean;
+  count?: number;
 }
 export type KittensPhase = 'playing' | 'reaction' | 'favor' | 'future' | 'defuse' | 'insert' | 'finished';
 export interface KittensState {
@@ -100,4 +101,4 @@ export const kittenInfo: Record<KittenKind, { name: string; caption: string; col
   rainbow: { name: '彩虹猫', caption: '同名两张随机偷牌，三张可索取指定牌', color: '#e3ade2' },
 };
 export const isCat = (kind: KittenKind) => ['taco', 'melon', 'potato', 'beard', 'rainbow'].includes(kind);
-export const RESPONSE_MS = 6000;
+export const RESPONSE_MS = 12000;

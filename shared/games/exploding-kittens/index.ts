@@ -126,7 +126,8 @@ export function resolveKittensPending(state: KittensState): KittensState {
       playerId: p.playerId,
       kind,
       cards: p.cards,
-      targetId: p.targetId ?? undefined,
+      targetId:
+        p.cards.length === 1 && kind === 'attack' ? s.players[nextSeat(s)] : (p.targetId ?? undefined),
       canceled: p.nopes % 2 === 1,
     },
     p.nopes % 2 ? '卡牌效果被否决' : `${kittenInfo[kind].name}的效果生效`,
@@ -141,7 +142,7 @@ export function resolveKittensPending(state: KittensState): KittensState {
     if (card) transfer(s, p.targetId!, p.playerId, card);
     emit(
       s,
-      { type: 'give', playerId: p.targetId!, targetId: p.playerId },
+      { type: 'give', playerId: p.targetId!, targetId: p.playerId, count: card ? 1 : 0 },
       card ? '组合成功，转移了一张手牌' : '指定牌未找到，组合未获得手牌',
     );
     return s;
@@ -200,7 +201,14 @@ export function applyKittensAction(
       s.turnDeadline = s.pending.deadline;
       emit(
         s,
-        { type: 'nope', playerId, kind: 'nope', cards, canceled: s.pending.nopes % 2 === 1 },
+        {
+          type: 'nope',
+          playerId,
+          kind: 'nope',
+          cards,
+          targetId: s.pending.playerId,
+          canceled: s.pending.nopes % 2 === 1,
+        },
         s.pending.nopes % 2 ? '否决！效果暂停' : '反否决！恢复效果',
       );
     } else {
@@ -217,7 +225,7 @@ export function applyKittensAction(
     s.favor = null;
     s.phase = 'playing';
     touch(s);
-    emit(s, { type: 'give', playerId, targetId: to }, '完成索取，赠予了一张手牌');
+    emit(s, { type: 'give', playerId, targetId: to, count: 1 }, '完成索取，赠予了一张手牌');
     return s;
   }
   requireTurn(s, playerId);
@@ -321,7 +329,7 @@ export function applyKittensAction(
     id: `ek-pending-${s.turnNumber}`,
     playerId,
     cards,
-    targetId: action.targetId ?? null,
+    targetId: cards.length === 1 && kind === 'attack' ? s.players[nextSeat(s)] : (action.targetId ?? null),
     requestKind: action.requestKind ?? null,
     nopes: 0,
     allowed: [playerId],
@@ -330,7 +338,7 @@ export function applyKittensAction(
   s.turnDeadline = s.pending.deadline;
   emit(
     s,
-    { type: 'play', playerId, kind, cards, targetId: action.targetId },
+    { type: 'play', playerId, kind, cards, targetId: s.pending.targetId ?? undefined },
     `打出${cards.length > 1 ? `${cards.length}张同名组合` : kittenInfo[kind].name}，等待否决响应`,
   );
   return s;

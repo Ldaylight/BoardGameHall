@@ -36,6 +36,7 @@ export function MatchResultDialog({
     host = room.hostId === me,
     puzzle = room.gameId === 'xiangqi' && room.options.xiangqi?.mode === 'puzzle';
   const ddz = game && 'kind' in game && game.kind === 'doudizhu' ? game : null;
+  const poker = game && 'kind' in game && game.kind === 'holdem' ? game : null;
   const won = ddz ? ddz.winnerIds.includes(me ?? '') : winner?.id === me;
   async function rematch() {
     setBusy(true);
@@ -79,6 +80,20 @@ export function MatchResultDialog({
             </>
           )}
         </DialogDescription>
+        {poker && (
+          <div className="ddz-scoreboard">
+            <p>共 {poker.handNumber} 手 · 最终桌面筹码</p>
+            {room.players
+              .filter((p) => p.id in poker.stacks)
+              .sort((a, b) => poker.stacks[b.id] - poker.stacks[a.id])
+              .map((p) => (
+                <div key={p.id}>
+                  <span>{p.name}</span>
+                  <b>{poker.stacks[p.id]}</b>
+                </div>
+              ))}
+          </div>
+        )}
         {ddz && (
           <div className="ddz-scoreboard">
             <p>
@@ -120,7 +135,10 @@ export function MatchResultDialog({
           <Button variant="ghost" onClick={() => setDismissed(room.matchId)}>
             <Eye size={16} />
             查看
-            {room.gameId === 'uno' || room.gameId === 'doudizhu' || room.gameId === 'exploding-kittens'
+            {room.gameId === 'uno' ||
+            room.gameId === 'doudizhu' ||
+            room.gameId === 'exploding-kittens' ||
+            room.gameId === 'holdem'
               ? '牌桌'
               : '棋盘'}
           </Button>

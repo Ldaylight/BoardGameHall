@@ -3,9 +3,11 @@ import { gomoku } from './gomoku/index.js';
 import { xiangqi } from './xiangqi/index.js';
 import { doudizhu } from './doudizhu/index.js';
 import { kittens } from './exploding-kittens/index.js';
+import { holdem } from './holdem/index.js';
 import type { GameAction, GameState, RoomOptions } from '../types.js';
-export const playableGames = { uno, gomoku, xiangqi, doudizhu, 'exploding-kittens': kittens };
+export const playableGames = { uno, gomoku, xiangqi, doudizhu, holdem, 'exploding-kittens': kittens };
 export function createGame(options: RoomOptions, players: string[]): GameState {
+  if (options.gameId === 'holdem') return holdem.createState(players, options.holdem);
   if (options.gameId === 'exploding-kittens') return kittens.createState(players);
   if (options.gameId === 'doudizhu') return doudizhu.createState(players);
   if (options.gameId === 'xiangqi') return xiangqi.createState(players, options.xiangqi);
@@ -20,9 +22,12 @@ export const isDoudizhu = (state: GameState): state is import('./doudizhu/types.
   'kind' in state && state.kind === 'doudizhu';
 export const isKittens = (state: GameState): state is import('./exploding-kittens/types.js').KittensState =>
   'kind' in state && state.kind === 'exploding-kittens';
+export const isHoldem = (state: GameState): state is import('./holdem/types.js').HoldemState =>
+  'kind' in state && state.kind === 'holdem';
 export const wonGame = (state: GameState | null, playerId: string) =>
   !!state && (isDoudizhu(state) ? state.winnerIds.includes(playerId) : state.winnerId === playerId);
 export function gameView(state: GameState, playerId: string | null) {
+  if (isHoldem(state)) return holdem.getView(state, playerId);
   if (isKittens(state)) return kittens.getView(state, playerId);
   if (isDoudizhu(state)) return doudizhu.getView(state, playerId);
   return isXiangqi(state)
@@ -32,6 +37,11 @@ export function gameView(state: GameState, playerId: string | null) {
       : uno.getView(state, playerId);
 }
 export function applyGameAction(state: GameState, playerId: string, action: GameAction): GameState {
+  if (isHoldem(state)) {
+    if (action.type.startsWith('poker:'))
+      return holdem.applyAction(state, playerId, action as import('./holdem/types.js').HoldemAction);
+    throw Error('德州扑克不支持此动作');
+  }
   if (isKittens(state)) {
     if (action.type.startsWith('ek:'))
       return kittens.applyAction(

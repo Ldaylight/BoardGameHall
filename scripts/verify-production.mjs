@@ -223,9 +223,58 @@ try {
   } finally {
     ks.disconnect();
   }
+  const cleanupSocket = io(`http://localhost:${port}`, { auth: { token }, transports: ['websocket'] });
+  const pRequest = (event, payload) =>
+    new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(Error('production poker ack timeout')), 10000);
+      cleanupSocket.emit(event, payload, (r) => {
+        clearTimeout(timer);
+        r.ok ? resolve(r.data) : reject(Error(r.error));
+      });
+    });
+  try {
+    await new Promise((resolve, reject) => {
+      cleanupSocket.once('connect', resolve);
+      cleanupSocket.once('connect_error', reject);
+    });
+    await pRequest('room:leave', { roomId: page.url().split('/').at(-1) });
+    await page.goto(`http://localhost:${port}/lobby`);
+    await page.locator('.nav-room-actions').getByRole('button', { name: '创建房间' }).click();
+    await page.getByLabel('选择游戏').selectOption('holdem');
+    await page.getByLabel('座位数量').selectOption('2');
+    await page.getByRole('dialog').getByRole('button', { name: '创建房间', exact: true }).click();
+    await page.getByLabel('AI 难度').selectOption('hard');
+    await page.getByRole('button', { name: '添加 AI', exact: true }).click();
+    await page.getByRole('button', { name: '我准备好了' }).click();
+    await page.getByRole('button', { name: '开始游戏', exact: true }).click();
+    await page.getByTestId('holdem-table').waitFor();
+    assert.equal(await page.locator('.holdem-own-cards .ddz-poker-face').count(), 2);
+    const roomId = page.url().split('/').at(-1),
+      before = await pRequest('room:sync', { roomId });
+    await page.getByRole('button', { name: /^跟注/ }).click();
+    const called = await pRequest('room:sync', { roomId }),
+      start = Date.now();
+    while (
+      Date.now() - start < 12000 &&
+      (await pRequest('room:sync', { roomId })).revision <= called.revision
+    )
+      await new Promise((r) => setTimeout(r, 200));
+    const after = await pRequest('room:sync', { roomId });
+    assert.ok(after.revision > called.revision);
+    assert.equal('hands' in after.game || 'deck' in after.game || 'burned' in after.game, false);
+    assert.equal(Object.values(after.game.stacks).reduce((a, b) => a + b, 0) + after.game.pot, 2000);
+    await page.reload();
+    await page.getByTestId('holdem-table').waitFor();
+    assert.deepEqual((await pRequest('room:sync', { roomId })).game.hand, before.game.hand);
+    await page.setViewportSize({ width: 390, height: 844 });
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
+    await page.screenshot({ path: '.artifacts/holdem-production-mobile.png' });
+  } finally {
+    cleanupSocket.disconnect();
+  }
   assert.deepEqual(errors, []);
   console.log(
-    'PASS: compiled Express SPA, deep routes, Socket.IO, UNO/clown WAV, CC0 OGG and RTT monitor; Gomoku, Xiangqi, Doudizhu and Kittens lazy tables/AI; capture effects, reconnect, resign, endgame checkmate; zero browser errors.',
+    'PASS: compiled Express SPA, deep routes, Socket.IO, UNO/clown WAV, CC0 OGG and RTT monitor; Gomoku, Xiangqi, Doudizhu, Kittens and Holdem lazy tables/AI; capture effects, reconnect, resign, endgame checkmate; zero browser errors.',
   );
 } finally {
   await browser?.close();

@@ -6,6 +6,7 @@ import { musicTracks, type AudioScene } from './audio-settings';
 import type { KittenKind } from '../../../shared/games/exploding-kittens/types';
 
 export type SoundEffect =
+  | `poker-${'chip' | 'check' | 'fold' | 'all-in' | 'board' | 'payout'}`
   | `ek-${KittenKind}`
   | 'ek-play'
   | 'ek-draw'
@@ -361,6 +362,28 @@ class AudioEngine {
   effect(effect: SoundEffect, delay = 0) {
     const p = useAudio.getState().preferences;
     if (!this.unlocked || p.muted || !p.effectsEnabled || p.effectsVolume === 0 || document.hidden) return;
+    if (effect.startsWith('poker-')) {
+      void this.preloadKittens();
+      if (effect === 'poker-chip' || effect === 'poker-all-in' || effect === 'poker-payout') {
+        const count = effect === 'poker-chip' ? 3 : effect === 'poker-all-in' ? 6 : 9;
+        for (let i = 0; i < count; i++) {
+          this.tone(90 + (i % 3) * 3, delay + i * 0.055, 0.055, 0.055, 'triangle');
+          this.impact(delay + i * 0.055, 0.045, 2800, 0.04);
+        }
+        if (effect === 'poker-all-in') this.tone(42, delay, 0.5, 0.15, 'sawtooth', false, 60);
+        if (effect === 'poker-payout')
+          [72, 76, 79, 84].forEach((n, i) => this.tone(n, delay + 0.2 + i * 0.08, 0.3, 0.1));
+      } else if (effect === 'poker-check') {
+        this.impact(delay, 0.08, 700, 0.12);
+        this.impact(delay + 0.13, 0.08, 700, 0.1);
+      } else if (effect === 'poker-fold') {
+        if (!this.kittenSample('card-slide-1', delay)) this.swish(delay, 0.15);
+      } else {
+        if (!this.kittenSample('card-fan-1', delay)) this.swish(delay, 0.15);
+        [76, 83].forEach((n, i) => this.tone(n, delay + 0.1 + i * 0.08, 0.16, 0.06));
+      }
+      return;
+    }
     if (effect.startsWith('ek-')) {
       this.kittenSound(effect, delay);
       return;

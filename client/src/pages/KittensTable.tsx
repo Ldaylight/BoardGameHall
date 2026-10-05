@@ -16,6 +16,7 @@ import type { Player, RoomView } from '../../../shared/types';
 import type { KittensAction, KittensView, KittenEvent } from '../../../shared/games/exploding-kittens/types';
 import { kittenInfo, kittenKinds } from '../../../shared/games/exploding-kittens/types';
 import { kittens } from '../../../shared/games/exploding-kittens';
+import { sortedKittenHand, kittenHandSpacing } from '../../../shared/games/exploding-kittens/presentation';
 import { useApp } from '@/stores/app';
 import { perform, request, socket } from '@/lib/api';
 import { audioEngine } from '@/lib/audio-engine';
@@ -90,11 +91,6 @@ function Seat({
           </small>
         </div>
       </div>
-      {active && (
-        <span className="kittens-clock" aria-label={`${player.name} 倒计时`}>
-          {Math.max(0, Math.ceil((game.turnDeadline - now) / 1000))}s
-        </span>
-      )}
       {!own && alive && (
         <div
           className="kittens-opponent-hand"
@@ -141,7 +137,29 @@ export function KittensTable({
   const [resultReady, setResultReady] = useState(false),
     tracker = useRef(new GameAudioTracker());
   const effectCheckpoint = useRef<{ matchId: string | null; sequence: number } | null>(null);
-  const [visual, setVisual] = useState<{ special?: KittenEvent; draw?: KittenEvent }>({});
+  const [visual, setVisual] = useState<{ special?: KittenEvent; draw?: KittenEvent; transfer?: KittenEvent }>(
+    {},
+  );
+  const handScroll = useRef<HTMLDivElement>(null);
+  const [spacing, setSpacing] = useState({ step: 120, width: 0 });
+  useEffect(() => {
+    const element = handScroll.current;
+    if (!element) return;
+    const card = element.querySelector<HTMLElement>('.kitten-playing-card');
+    const measure = () =>
+      setSpacing(
+        kittenHandSpacing(
+          game?.hand.length ?? 0,
+          element.clientWidth,
+          card?.getBoundingClientRect().width ?? 108,
+        ),
+      );
+    const observer = new ResizeObserver(measure);
+    observer.observe(element);
+    if (card) observer.observe(card);
+    measure();
+    return () => observer.disconnect();
+  }, [game?.hand.length]);
   useEffect(() => {
     if (!game || !connected || document.hidden) {
       effectCheckpoint.current = null;
@@ -170,7 +188,12 @@ export function KittensTable({
           (e.type === 'effect' && !e.canceled),
       );
     const draw = fresh.at(-1)?.type === 'draw' ? fresh.at(-1) : undefined;
-    setVisual((current) => ({ special: special ?? current.special, draw }));
+    const transfer = [...fresh].reverse().find((e) => e.type === 'give' && e.count !== 0);
+    setVisual((current) => ({
+      special: special ?? current.special,
+      draw,
+      transfer: transfer ?? current.transfer,
+    }));
   }, [room.matchId, game?.logSequence, connected]);
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), 250);
@@ -210,7 +233,8 @@ export function KittensTable({
     alive = !!mine && game.alive.includes(me!),
     actor = alive && game.actorId === me;
   const canAct = connected && !busy && alive && !game.winnerId;
-  const selected = game.hand.filter((c) => selection.includes(c.id));
+  const hand = sortedKittenHand(game.hand);
+  const selected = hand.filter((c) => selection.includes(c.id));
   const needsTarget = selected.length > 1 || selected[0]?.kind === 'favor';
   const playAction: KittensAction = {
     type: 'ek:play',
@@ -243,6 +267,15 @@ export function KittensTable({
   const nope = legal.find((a) => a.type === 'ek:nope'),
     allow = legal.find((a) => a.type === 'ek:allow');
   const seatName = (id: string) => room.players.find((p) => p.id === id)?.name ?? '牌友';
+  const point = (id: string) =>
+    id === me
+      ? [50, 96]
+      : (seatPositions[opponents.length]?.[opponents.findIndex((p) => p.id === id)] ?? [50, 16]);
+  const targeted = game.pending
+    ? { playerId: game.pending.playerId, targetId: game.pending.targetId }
+    : special;
+  const from = targeted ? point(targeted.playerId) : null,
+    to = targeted?.targetId ? point(targeted.targetId) : null;
   const hint = !mine
     ? '观战中 · 玩家手牌不会公开'
     : !alive
@@ -339,7 +372,8 @@ export function KittensTable({
           <div className="kittens-reaction" data-testid="kitten-reaction">
             <b>{game.pending.nopes % 2 ? '当前效果已否决' : '等待否决响应'}</b>
             <span>
-              {seatName(game.pending.playerId)} ·{' '}
+              {seatName(game.pending.playerId)} →{' '}
+              {game.pending.targetId ? seatName(game.pending.targetId) : '本桌'} ·{' '}
               {game.pending.cards.length > 1
                 ? `${game.pending.cards.length} 张同名组合`
                 : kittenInfo[game.pending.cards[0].kind].name}
@@ -360,6 +394,44 @@ export function KittensTable({
             </div>
             <small>{Math.max(0, Math.ceil((game.turnDeadline - now) / 1000))}s · 否决可被再次否决</small>
           </div>
+        )}
+        {from && to && targeted?.playerId !== targeted?.targetId && (
+          <svg
+            className="kittens-target-arrow"
+            viewBox="0 0 100 100"
+            preserveAspectRatio="none"
+            aria-label={`${seatName(targeted!.playerId)} 对 ${seatName(targeted!.targetId!)} 使用效果`}
+            data-target-id={targeted!.targetId}
+          >
+            <defs>
+              <marker
+                id="kitten-arrow-head"
+                markerWidth="5"
+                markerHeight="5"
+                refX="4"
+                refY="2.5"
+                orient="auto"
+              >
+                <path d="M0 0 5 2.5 0 5Z" fill="#f0c78b" />
+              </marker>
+            </defs>
+            <path
+              d={`M${from[0]} ${from[1]} Q50 40 ${to[0]} ${to[1]}`}
+              fill="none"
+              stroke="#f0c78b"
+              strokeWidth=".55"
+              strokeDasharray="2 1.5"
+              markerEnd="url(#kitten-arrow-head)"
+            />
+          </svg>
+        )}
+        {targeted && (
+          <div className="kittens-effect-target" aria-live="polite">
+            {seatName(targeted.playerId)} → {targeted.targetId ? seatName(targeted.targetId) : '本桌 / 自己'}
+          </div>
+        )}
+        {motionEnabled && visual.transfer?.targetId && (
+          <TransferFlight key={`${room.matchId}-${visual.transfer.number}`} event={visual.transfer} />
         )}
         {motionEnabled && special && !(special.type === 'effect' && special.canceled) && special.kind && (
           <div
@@ -397,6 +469,18 @@ export function KittensTable({
         )}
       </main>
       <footer className="kittens-hand-area">
+        {!game.winnerId && (
+          <div
+            className={`kittens-countdown ${game.turnDeadline - now < 5000 ? 'urgent' : ''}`}
+            data-testid="kittens-countdown"
+          >
+            <span>{game.phase === 'reaction' ? '否决响应' : `${seatName(game.actorId)} · 行动倒计时`}</span>
+            <b>
+              {Math.max(0, Math.ceil((game.turnDeadline - now) / 1000))}
+              <small>秒</small>
+            </b>
+          </div>
+        )}
         <div className="kittens-actions">
           <p>{hint}</p>
           {game.phase === 'playing' && (
@@ -481,9 +565,18 @@ export function KittensTable({
           )}
         </div>
         {mine && <Seat player={mine} game={game} own now={now} />}
-        <div className="kittens-hand-scroll">
-          <div className="kittens-hand" style={{ '--hand-count': game.hand.length } as CSSProperties}>
-            {game.hand.map((card, i) => (
+        <div className="kittens-hand-scroll" ref={handScroll}>
+          <div
+            className="kittens-hand"
+            style={
+              {
+                '--hand-count': hand.length,
+                '--hand-step': `${spacing.step}px`,
+                '--hand-width': `${spacing.width}px`,
+              } as CSSProperties
+            }
+          >
+            {hand.map((card, i) => (
               <div className="kittens-hand-slot" key={card.id} style={{ '--card-i': i } as CSSProperties}>
                 <KittenCard
                   card={card}
@@ -592,7 +685,7 @@ export function KittensTable({
                 轮到你时可连续打出普通效果牌，摸一张结束一次回合。攻击让下一家承担两轮，被攻击者再攻击会转移尚未完成的轮数并额外加两轮。跳过或拆弹只结束一次回合。
               </p>
               <p>
-                每张主动效果或同名组合进入 6
+                每张主动效果或同名组合进入 12
                 秒否决窗口；所有存活玩家点击“不否决”可提前结算。否决能再被否决；摸牌、炸弹及拆弹不能被否决。
               </p>
               <p>
@@ -621,4 +714,36 @@ export function KittensTable({
       />
     </section>
   );
+}
+function TransferFlight({ event }: { event: KittenEvent }) {
+  const [flight, setFlight] = useState<CSSProperties | null>(null);
+  useEffect(() => {
+    const endpoint = (id: string) => {
+      const seat = document.querySelector<HTMLElement>(`.kittens-seat[data-player-id="${id}"]`);
+      const cards = seat?.classList.contains('kittens-seat-own')
+        ? document.querySelector<HTMLElement>('.kittens-hand-scroll')
+        : seat?.querySelector<HTMLElement>('.kittens-opponent-hand');
+      const rect = (cards ?? seat)?.getBoundingClientRect();
+      return rect ? { x: rect.x + rect.width / 2 - 20, y: rect.y + rect.height / 2 - 28 } : null;
+    };
+    const from = endpoint(event.playerId),
+      to = endpoint(event.targetId!);
+    if (!from || !to) return;
+    setFlight({
+      left: from.x,
+      top: from.y,
+      '--transfer-x': `${to.x - from.x}px`,
+      '--transfer-y': `${to.y - from.y}px`,
+    } as CSSProperties);
+  }, [event.number]);
+  return flight ? (
+    <div
+      className="kittens-transfer-flight"
+      style={flight}
+      data-testid="kitten-transfer"
+      aria-label="一张未公开手牌被转移"
+    >
+      <KittenCard small />
+    </div>
+  ) : null;
 }

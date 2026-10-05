@@ -39,16 +39,19 @@ export function Room() {
   const isXiangqi = room.gameId === 'xiangqi';
   const isDoudizhu = room.gameId === 'doudizhu';
   const isKittens = room.gameId === 'exploding-kittens';
+  const isHoldem = room.gameId === 'holdem';
   const minPlayers = isDoudizhu ? 3 : 2;
-  const gameName = isKittens
-    ? '炸弹猫'
-    : isDoudizhu
-      ? '斗地主'
-      : isXiangqi
-        ? '中国象棋'
-        : isGomoku
-          ? '五子棋'
-          : 'UNO';
+  const gameName = isHoldem
+    ? '德州扑克'
+    : isKittens
+      ? '炸弹猫'
+      : isDoudizhu
+        ? '斗地主'
+        : isXiangqi
+          ? '中国象棋'
+          : isGomoku
+            ? '五子棋'
+            : 'UNO';
   const rules = { ...defaultGomokuOptions, ...room.options.gomoku };
   async function execute(task: () => Promise<unknown>) {
     setBusy(true);
@@ -198,13 +201,15 @@ export function Room() {
                   <option value="medium">AI · 中等</option>
                   <option value="hard">
                     AI · 困难
-                    {isKittens
-                      ? '（风险启发式）'
-                      : isDoudizhu
-                        ? '（组合搜索）'
-                        : isGomoku || isXiangqi
-                          ? '（Alpha-Beta）'
-                          : '（中等策略）'}
+                    {isHoldem
+                      ? '（蒙特卡洛）'
+                      : isKittens
+                        ? '（风险启发式）'
+                        : isDoudizhu
+                          ? '（组合搜索）'
+                          : isGomoku || isXiangqi
+                            ? '（Alpha-Beta）'
+                            : '（中等策略）'}
                   </option>
                 </select>
               )}
@@ -262,15 +267,17 @@ export function Room() {
                     : !humansReady
                       ? '等待所有真人玩家准备。AI 已经迫不及待了。'
                       : '大家都准备好了，房主可以开始！'}{' '}
-              {isKittens
-                ? 'AI 只读取自己的手牌、公开信息和通过预知获得的牌序；困难档使用风险启发式。'
-                : isDoudizhu
-                  ? '困难 AI 搜索自己的合法组合，农民会配合队友；不会读取对手手牌。'
-                  : isXiangqi
-                    ? '困难 AI 使用迭代加深 Alpha-Beta 搜索；残局可准备后重新开始。'
-                    : isGomoku
-                      ? '困难 AI 使用 4–6 层 Alpha-Beta 搜索。'
-                      : '困难 AI 当前使用中等策略。'}
+              {isHoldem
+                ? '困难 AI 根据公开牌与自己的底牌进行蒙特卡洛胜率估计；不会读取对手手牌。'
+                : isKittens
+                  ? 'AI 只读取自己的手牌、公开信息和通过预知获得的牌序；困难档使用风险启发式。'
+                  : isDoudizhu
+                    ? '困难 AI 搜索自己的合法组合，农民会配合队友；不会读取对手手牌。'
+                    : isXiangqi
+                      ? '困难 AI 使用迭代加深 Alpha-Beta 搜索；残局可准备后重新开始。'
+                      : isGomoku
+                        ? '困难 AI 使用 4–6 层 Alpha-Beta 搜索。'
+                        : '困难 AI 当前使用中等策略。'}
             </p>
           </section>
           <section className="panel rules-panel">
@@ -278,12 +285,26 @@ export function Room() {
               <Layers3 size={18} />
               {gameName} · 本大厅规则
             </h2>
-            {isKittens ? (
+            {isHoldem ? (
+              <>
+                <div className="rule-tags">
+                  <span>2–6 人 · 无限注</span>
+                  <span>两张底牌 · 五张公共牌</span>
+                  <span>桌面筹码 1000</span>
+                  <span>支持边池</span>
+                </div>
+                <p>
+                  盲注 10/20，每 4
+                  手翻倍。翻牌前、翻牌、转牌、河牌分别下注，任选五张组成最佳牌型。可弃牌、过牌、跟注、加注或全下，加注金额为本轮总额。短码全下不重开已行动玩家的加注；累计达到完整加注时重开。主池、边池独立结算，未跟注的多余筹码退回，同牌型平分。只剩一人拥有筹码则比赛结束。行动超时或离线由
+                  AI 代打，AI 思考 2–3 秒。每手结算展示 6 秒后自动继续。桌面筹码独立于大厅金币。
+                </p>
+              </>
+            ) : isKittens ? (
               <>
                 <div className="rule-tags">
                   <span>经典版 · 2–5 人</span>
                   <span>每人 8 张含拆弹</span>
-                  <span>6 秒否决窗口</span>
+                  <span>12 秒否决窗口</span>
                   <span>最后幸存者获胜</span>
                 </div>
                 <p>

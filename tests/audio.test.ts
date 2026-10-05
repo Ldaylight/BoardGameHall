@@ -5,6 +5,7 @@ import { uno } from '../shared/games/uno';
 import type { RoomView } from '../shared/types';
 import { xiangqiTimelines } from '../client/src/lib/xiangqi-timeline';
 import { doudizhu } from '../shared/games/doudizhu';
+import { holdem } from '../shared/games/holdem';
 
 function room(): RoomView {
   const state = uno.createState(['a', 'b']);
@@ -36,6 +37,41 @@ function room(): RoomView {
 }
 
 describe('audio preferences and public events', () => {
+  it('poker effects follow accepted public events once, with final win distinct from hand payouts', () => {
+    let s = holdem.createState(['a', 'b']);
+    s.street = 'river';
+    s.community = [2, 4, 7, 9, 11].map((rank, i) => ({
+      rank,
+      suit: i % 2 ? 'hearts' : 'spades',
+      id: `public${i}`,
+    }));
+    s.hands.a = [
+      { rank: 14, suit: 'clubs', id: 'a1' },
+      { rank: 14, suit: 'diamonds', id: 'a2' },
+    ];
+    s.hands.b = [
+      { rank: 13, suit: 'clubs', id: 'b1' },
+      { rank: 13, suit: 'diamonds', id: 'b2' },
+    ];
+    const r = room();
+    r.gameId = 'holdem';
+    r.game = holdem.getView(s, 'a');
+    const tracker = new GameAudioTracker();
+    expect(tracker.update(r, true, 'a')).toEqual([{ effect: 'deal' }]);
+    s = holdem.applyAction(s, 'a', { type: 'poker:all-in' });
+    r.game = holdem.getView(s, 'a');
+    expect(tracker.update(r, true, 'a')).toEqual([{ effect: 'poker-all-in' }]);
+    s = holdem.applyAction(s, 'b', { type: 'poker:call' });
+    r.game = holdem.getView(s, 'a');
+    expect(tracker.update(r, true, 'a')).toEqual([
+      { effect: 'poker-chip' },
+      { effect: 'poker-payout' },
+      { effect: 'win', delay: 0.6 },
+    ]);
+    expect(tracker.update(structuredClone(r), true, 'a')).toEqual([]);
+    tracker.update(r, false, 'a');
+    expect(tracker.update(r, true, 'a')).toEqual([]);
+  });
   it('joker laughter occurs only on accepted +2/+4 play events, once after server acknowledgement', () => {
     const view = room(),
       tracker = new GameAudioTracker();

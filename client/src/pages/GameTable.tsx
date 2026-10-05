@@ -7,6 +7,8 @@ import type { GomokuView } from '../../../shared/games/gomoku/types';
 import type { XiangqiView } from '../../../shared/games/xiangqi/types';
 import type { DoudizhuView } from '../../../shared/games/doudizhu/types';
 import type { KittensView } from '../../../shared/games/exploding-kittens/types';
+import type { HoldemView } from '../../../shared/games/holdem/types';
+const HoldemTable = lazy(() => import('./HoldemTable').then((m) => ({ default: m.HoldemTable })));
 const KittensTable = lazy(() => import('./KittensTable').then((m) => ({ default: m.KittensTable })));
 const DoudizhuTable = lazy(() => import('./DoudizhuTable').then((m) => ({ default: m.DoudizhuTable })));
 const XiangqiTable = lazy(() => import('./XiangqiTable').then((m) => ({ default: m.XiangqiTable })));
@@ -23,7 +25,9 @@ export function GameTable() {
     );
   return (
     <Suspense fallback={<div className="loading-panel">正在准备游戏桌…</div>}>
-      {room.gameId === 'exploding-kittens' ? (
+      {room.gameId === 'holdem' ? (
+        <HoldemTable room={room as RoomView<HoldemView>} connected={connected} leave={leave} />
+      ) : room.gameId === 'exploding-kittens' ? (
         <KittensTable room={room as RoomView<KittensView>} connected={connected} leave={leave} />
       ) : room.gameId === 'doudizhu' ? (
         <DoudizhuTable room={room as RoomView<DoudizhuView>} connected={connected} leave={leave} />

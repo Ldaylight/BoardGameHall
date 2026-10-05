@@ -352,6 +352,7 @@
   gap: 8px;
 }
 .kittens-hand-area {
+  position: relative;
   --own-seat-width: 150px;
   display: grid;
   grid-template-columns: var(--own-seat-width) minmax(0, 1fr) var(--own-seat-width);
@@ -1203,5 +1204,147 @@
   }
   .kitten-playing-card {
     transition: none;
+  }
+}
+
+/* Space-aware hand: separate whole cards until the available area runs out. */
+.kittens-hand {
+  width: var(--hand-width);
+  min-width: 100%;
+}
+.kittens-hand-slot {
+  flex-basis: var(--hand-step);
+}
+.kittens-hand-slot:last-child {
+  flex-basis: auto;
+  flex-shrink: 0;
+}
+.kittens-countdown {
+  position: absolute;
+  left: 50%;
+  top: -51px;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 5px 16px;
+  border: 1px solid #e8bd8477;
+  border-radius: 13px;
+  background: rgb(var(--bg-rgb) / 0.95);
+  color: #f0d1a2;
+  z-index: 9;
+  white-space: nowrap;
+}
+.kittens-countdown > span {
+  font-size: 11px;
+}
+.kittens-countdown b {
+  font-size: 30px;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.kittens-countdown small {
+  font-size: 10px;
+  margin-left: 5px;
+}
+.kittens-countdown.urgent {
+  color: #ff8b91;
+  border-color: #ef7f8c;
+}
+.kittens-target-arrow {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 2;
+  opacity: 0.75;
+}
+.kittens-target-arrow path {
+  vector-effect: non-scaling-stroke;
+  stroke-width: 2px;
+}
+.kittens-effect-target {
+  position: absolute;
+  left: 50%;
+  top: 34%;
+  transform: translateX(-50%);
+  color: #f7d89b;
+  font-size: 12px;
+  background: #27222be8;
+  border: 1px solid #edc68b55;
+  padding: 6px 12px;
+  border-radius: 20px;
+  z-index: 4;
+  max-width: 85%;
+  text-align: center;
+}
+.kittens-transfer-flight {
+  position: fixed;
+  pointer-events: none;
+  z-index: 60;
+  filter: drop-shadow(-12px 2px 8px #ebc894bb);
+  animation: kitten-transfer 0.95s ease-in-out both;
+}
+@keyframes kitten-transfer {
+  0% {
+    transform: translate(0, 0) rotate(-12deg) scale(0.85);
+    opacity: 0;
+  }
+  15% {
+    opacity: 1;
+  }
+  75% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate(var(--transfer-x), var(--transfer-y)) rotate(8deg) scale(0.7);
+    opacity: 0;
+  }
+}
+@media (max-width: 600px) {
+  .kittens-countdown {
+    top: -43px;
+    padding: 5px 10px;
+    gap: 8px;
+  }
+  .kittens-countdown b {
+    font-size: 25px;
+  }
+  .kittens-countdown > span {
+    font-size: 9px;
+  }
+  .kittens-effect-target {
+    top: 27%;
+    font-size: 10px;
+  }
+  .kittens-reaction {
+    bottom: 13%;
+  }
+}
+@media (max-height: 600px) and (min-width: 601px) {
+  .kittens-countdown {
+    top: -32px;
+    padding: 3px 10px;
+    gap: 8px;
+  }
+  .kittens-countdown b {
+    font-size: 20px;
+  }
+  .kittens-countdown > span {
+    font-size: 9px;
+  }
+  .kittens-effect-target {
+    top: 9%;
+    font-size: 9px;
+    padding: 3px 9px;
+  }
+}
+.kittens-still .kittens-transfer-flight {
+  display: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .kittens-transfer-flight {
+    display: none;
   }
 }

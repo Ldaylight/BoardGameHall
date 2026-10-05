@@ -86,6 +86,22 @@ test('Kittens: three humans, private future, gifts/defusing, refresh, full game,
     await a.getByRole('button', { name: '发送消息' }).click();
     await expect(a.locator('.chat-message')).toContainText('拆弹开始');
     await a.getByRole('button', { name: '关闭', exact: true }).click();
+    const shownKinds = await a
+      .locator('.kittens-hand-slot [data-card-kind]')
+      .evaluateAll((cards) => cards.map((c) => c.getAttribute('data-card-kind')!));
+    const ordinary = ['taco', 'melon', 'potato', 'beard', 'rainbow'];
+    const firstSpecial = shownKinds.findIndex((k) => !ordinary.includes(k));
+    expect(shownKinds.slice(firstSpecial).every((k) => !ordinary.includes(k))).toBe(true);
+    const flat = await a.locator('.kittens-hand-slot .kitten-card').evaluateAll((cards) =>
+      cards.map((c) => {
+        const r = c.getBoundingClientRect();
+        return { x: r.x, width: r.width };
+      }),
+    );
+    for (let i = 1; i < flat.length; i++)
+      expect(flat[i].x - flat[i - 1].x).toBeGreaterThanOrEqual(flat[i - 1].width - 1);
+    await expect(a.locator('.kittens-seat .kittens-seat-clock')).toHaveCount(0);
+    await expect(a.getByTestId('kittens-countdown')).toBeVisible();
     await a.screenshot({ path: '.artifacts/kittens-desktop.png' });
     for (const viewport of [
       { width: 390, height: 844 },
@@ -102,7 +118,8 @@ test('Kittens: three humans, private future, gifts/defusing, refresh, full game,
     }
     await a.setViewportSize({ width: 1440, height: 900 });
     let sawFuture = false,
-      sawDefuse = false;
+      sawDefuse = false,
+      sawTransfer = false;
     for (let steps = 0; steps < 600; steps++) {
       const r = await sync(),
         g = kittensView(r);
@@ -132,12 +149,29 @@ test('Kittens: three humans, private future, gifts/defusing, refresh, full game,
         await pages[actor].getByLabel('炸弹放回位置').fill('0');
         await pages[actor].getByRole('button', { name: '确认秘密放回', exact: true }).click();
         sawDefuse = true;
+      } else if (g.phase === 'favor' && !sawTransfer) {
+        const before = own.hand.length;
+        await act(actor, { type: 'ek:give', cardId: own.hand[0].id });
+        await expect(a.getByTestId('kitten-transfer')).toBeVisible();
+        await expect(a.getByTestId('kitten-transfer').locator('.kitten-card-face')).toHaveCount(0);
+        expect(kittensView(await sync(actor)).hand).toHaveLength(before - 1);
+        sawTransfer = true;
       } else {
         const future =
           !sawFuture && own.phase === 'playing' && own.hand.find((card) => card.kind === 'future');
+        const favor =
+          !sawTransfer && own.phase === 'playing' && own.hand.find((card) => card.kind === 'favor');
         await act(
           actor,
-          future ? { type: 'ek:play', cardIds: [future.id] } : kittens.aiMove(own, ids[actor], 'medium'),
+          future
+            ? { type: 'ek:play', cardIds: [future.id] }
+            : favor
+              ? {
+                  type: 'ek:play',
+                  cardIds: [favor.id],
+                  targetId: own.alive.find((id) => id !== ids[actor] && own.handCounts[id] > 0)!,
+                }
+              : kittens.aiMove(own, ids[actor], 'medium'),
         );
       }
     }
@@ -147,6 +181,7 @@ test('Kittens: three humans, private future, gifts/defusing, refresh, full game,
     expect(ended.resultSaved).toBe(true);
     expect(sawFuture).toBe(true);
     expect(sawDefuse).toBe(true);
+    expect(sawTransfer).toBe(true);
     for (const p of pages) await expect(p.locator('.match-result-dialog')).toBeVisible();
     await a.screenshot({ path: '.artifacts/kittens-result.png' });
     await a.getByRole('button', { name: '再来一局', exact: true }).click();
@@ -162,7 +197,7 @@ test('Kittens: three humans, private future, gifts/defusing, refresh, full game,
 test('Kittens: five seats, AI responds on the standard channel, phone navigation and audio assets', async ({
   page,
 }) => {
-  test.setTimeout(60000);
+  test.setTimeout(90000);
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(e.message));
   page.on('console', (m) => {
@@ -239,7 +274,7 @@ test('Kittens: five seats, AI responds on the standard channel, phone navigation
         }
       } else {
         await expect
-          .poll(async () => (await sync()).revision, { timeout: 10000 })
+          .poll(async () => (await sync()).revision, { timeout: 16000 })
           .toBeGreaterThan(r.revision);
       }
     }
@@ -248,4 +283,26 @@ test('Kittens: five seats, AI responds on the standard channel, phone navigation
   } finally {
     socket.disconnect();
   }
+});
+
+test('Kitten artwork: all thirteen kinds have different illustrated faces', async ({ page }) => {
+  const errors: string[] = [];
+  page.on('pageerror', (e) => errors.push(e.message));
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/settings');
+  await page.evaluate(
+    async (url) => {
+      const fixture = await import(/* @vite-ignore */ url);
+      fixture.mountKittenArt();
+    },
+    `/@fs/${process.cwd().replace(/\\/g, '/')}/tests/fixtures/kittens-art.tsx`,
+  );
+  const gallery = page.getByTestId('kitten-art-gallery');
+  await expect(gallery.locator('.kitten-illustration')).toHaveCount(13);
+  const art = await gallery
+    .locator('.kitten-illustration svg')
+    .evaluateAll((nodes) => nodes.map((n) => n.innerHTML));
+  expect(new Set(art).size).toBe(13);
+  await page.screenshot({ path: '.artifacts/kitten-art-thirteen.png' });
+  expect(errors).toEqual([]);
 });

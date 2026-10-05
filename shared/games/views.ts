@@ -1,4 +1,8 @@
 import type { RoomView } from '../types.js';
+export function holdemView(room: RoomView): import('./holdem/types.js').HoldemView {
+  if (!room.game || !('kind' in room.game) || room.game.kind !== 'holdem') throw Error('不是德州扑克');
+  return room.game;
+}
 import type { UnoView } from './uno/index.js';
 import type { GomokuView } from './gomoku/types.js';
 import type { XiangqiView } from './xiangqi/types.js';

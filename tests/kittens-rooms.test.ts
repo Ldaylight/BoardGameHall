@@ -101,8 +101,8 @@ describe('Kittens authoritative shared rooms', () => {
       stored.revision,
     );
     stored = (await rooms.store.get(r.id))!;
-    expect(stored.nextActionAt! - Date.now()).toBeGreaterThanOrEqual(450);
-    expect(stored.nextActionAt! - Date.now()).toBeLessThanOrEqual(1500);
+    expect(stored.nextActionAt! - Date.now()).toBeGreaterThanOrEqual(1950);
+    expect(stored.nextActionAt! - Date.now()).toBeLessThanOrEqual(3000);
     if (!stored.game || !isKittens(stored.game)) throw Error('wrong game');
     stored.game.pending!.deadline = Date.now() - 1;
     stored.game.turnDeadline = Date.now() - 1;
