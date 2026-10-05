@@ -7,12 +7,26 @@ test('desktop catalog, search, filters, drawer and room + AI + refresh', async (
   });
   await page.goto('/lobby');
   await expect(page.getByText('已连接 · 实时同步')).toBeVisible();
-  await expect(page.locator('.game-tile')).toHaveCount(5);
+  await expect(page.locator('.game-tile')).toHaveCount(8);
+  for (const name of ['炸弹猫', '麻将', '台球']) {
+    const tile = page.locator('.game-tile').filter({ has: page.getByRole('heading', { name, exact: true }) });
+    await expect(tile.getByRole('button', { name: '敬请期待' })).toBeDisabled();
+  }
+  await page.screenshot({ path: '.artifacts/catalog-eight-games.png', fullPage: true });
+  await page.getByRole('textbox', { name: '搜索游戏' }).fill('炸弹猫');
+  await expect(page.locator('.game-tile')).toHaveCount(1);
+  await page.getByRole('button', { name: '清除搜索' }).click();
+  await page.locator('.toolbar-tabs').getByRole('button', { name: '运动', exact: true }).click();
+  await expect(page.locator('.tile-title h3')).toHaveText('台球');
+  await page
+    .locator('.toolbar-tabs')
+    .getByRole('button', { name: /全部游戏/ })
+    .click();
   await page.getByRole('textbox', { name: '搜索游戏' }).fill('五子棋');
   await expect(page.locator('.game-tile')).toHaveCount(1);
   await expect(page.locator('.tile-title h3')).toHaveText('五子棋');
   await page.getByRole('button', { name: '清除搜索' }).click();
-  await expect(page.locator('.game-tile')).toHaveCount(5);
+  await expect(page.locator('.game-tile')).toHaveCount(8);
   await page.locator('.toolbar-tabs').getByRole('button', { name: '棋类', exact: true }).click();
   await expect(page.locator('.game-tile')).toHaveCount(2);
   await page
@@ -35,6 +49,11 @@ test('desktop catalog, search, filters, drawer and room + AI + refresh', async (
   await expect(page).toHaveURL(/\/game\//);
   await expect(page.locator('.hand-slot')).toHaveCount(7);
   await expect(page.locator('.hand-slot button').first()).toHaveCSS('opacity', '1');
+  const handBounds = await page.locator('.hand-content').boundingBox();
+  expect(
+    Math.abs(handBounds!.x + handBounds!.width / 2 - (await page.evaluate(() => innerWidth)) / 2),
+  ).toBeLessThan(2);
+  await page.screenshot({ path: '.artifacts/uno-hand-centered-desktop.png' });
   const hand = await page
     .locator('.hand-slot button')
     .evaluateAll((cards) => cards.map((c) => c.getAttribute('aria-label')));
@@ -50,7 +69,7 @@ test('desktop catalog, search, filters, drawer and room + AI + refresh', async (
 test('mobile navigation and creation without horizontal overflow', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/lobby');
-  await expect(page.locator('.game-tile')).toHaveCount(5);
+  await expect(page.locator('.game-tile')).toHaveCount(8);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await page.getByRole('button', { name: '展开导航' }).click();
   await expect(page.locator('.sidebar.mobile-open')).toBeVisible();
@@ -131,6 +150,9 @@ test('two independent players join, ready, chat, play a card and use mobile tabl
     }
     await b.setViewportSize({ width: 390, height: 844 });
     await expect(b.locator('.game-arena')).toBeVisible();
+    const handBounds = await b.locator('.hand-content').boundingBox();
+    expect(Math.abs(handBounds!.x + handBounds!.width / 2 - 195)).toBeLessThan(2);
+    await b.screenshot({ path: '.artifacts/uno-hand-centered-mobile.png' });
     expect(await b.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     expect(errors).toEqual([]);
   } finally {

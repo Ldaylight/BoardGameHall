@@ -13,7 +13,7 @@ try {
     await prisma.game.upsert({ where: { id: game.id }, create: { id: game.id, ...data }, update: data });
   }
   console.log(
-    'Seed complete: five catalog entries; UNO, Gomoku, Xiangqi and Doudizhu playable. No fake users or match records.',
+    `Seed complete: ${games.length} catalog entries; UNO, Gomoku, Xiangqi and Doudizhu playable. No fake users or match records.`,
   );
 } finally {
   await prisma.$disconnect();

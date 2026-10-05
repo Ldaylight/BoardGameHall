@@ -2,13 +2,15 @@
 
 一个可运行的多人 Web 桌游大厅。React 18 / TypeScript / Vite / Tailwind CSS / shadcn 风格本地 Radix UI 组件 / Zustand / React Router / Framer Motion；Express / Socket.IO；MySQL 8.0 / Prisma 6；可选 Redis 房间状态与 Socket.IO adapter。
 
-**UNO、五子棋、中国象棋和斗地主现已开放。** 四款游戏复用大厅、用户、房间、聊天、观战、重连与结算系统；中国象棋包含标准对局和经典杀法教学残局，斗地主支持三人叫分和地主/农民阵营结算。德州扑克仍为独立预留入口。默认体验模式也使用真正的 Socket.IO 服务端权威房间；只有持久化层在内存中。游戏目录使用静态 mock 数据先跑通 UI。
+**UNO、五子棋、中国象棋和斗地主现已开放。** 四款游戏复用大厅、用户、房间、聊天、观战、重连与结算系统；中国象棋包含标准对局和经典杀法教学残局，斗地主支持三人叫分和地主/农民阵营结算。德州扑克、炸弹猫、麻将、台球为预留入口，仅展示独立封面、人数和预计时长；标记“敬请期待”，不开放创建房间或实际对局。默认体验模式也使用真正的 Socket.IO 服务端权威房间；只有持久化层在内存中。游戏目录使用静态 mock 数据先跑通 UI。
+
+UNO 与斗地主手牌按照牌桌中线居中，自己的名片保留在左侧。斗地主悬停仅描边高亮，不抬升卡牌、不改变层级；点击后才抬起表示选中。手机横竖屏保留手牌溢出滚动。麻将预留四人规则，具体地区玩法待确定；台球预留两人玩法，并新增“休闲运动”分类。新预留项目尚无 AI，因此不出现在“支持人机”筛选中。
 
 ## 电脑重启后，如何重新打开项目
 
 本机已经安装依赖、生成 Prisma 客户端、迁移并初始化数据库，包括五子棋平局迁移。普通重启后无需重复安装、迁移或种子初始化，保留已有 `.env`。其他已部署环境更新本次代码后，需要先执行一次 `npm run db:generate` 和 `npm run db:migrate`。
 
-本次斗地主、性能条和 UNO 音效更新无需新增依赖或数据库迁移。已有部署更新代码后运行一次 `npm run db:seed`，将斗地主目录标记为开放；生产部署再执行 `npm run build`。本机已执行种子更新。
+本次斗地主、性能条、UNO 音效及三个预留入口更新无需新增依赖或数据库迁移。已有部署更新代码后运行一次 `npm run db:seed`，将斗地主目录标记为开放并补齐八款游戏元数据；生产部署再执行 `npm run build`。本机已执行种子更新。
 
 在 PowerShell 中运行：
 
@@ -99,7 +101,7 @@ CREATE DATABASE IF NOT EXISTS board_game_lobby_playroom
   CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 ```
 
-Prisma schema 包含 `User`、`Game`、`Room`、`RoomPlayer`、`Match`、`MatchPlayer`、`ChatMessage`、`Friend`、`Ranking`。种子数据仅建立五款游戏，不虚构战绩。访客身份首次进入大厅自动创建，凭证哈希保存于数据库，本机保存随机 token。
+Prisma schema 包含 `User`、`Game`、`Room`、`RoomPlayer`、`Match`、`MatchPlayer`、`ChatMessage`、`Friend`、`Ranking`。种子数据仅建立八款游戏元数据，不虚构战绩。访客身份首次进入大厅自动创建，凭证哈希保存于数据库，本机保存随机 token。
 
 - 创建房间：事务创建 Room 和房主 RoomPlayer。
 - 加入房间：事务锁定 Room 行，校验容量，唯一索引限制座位。
@@ -139,7 +141,7 @@ $env:PORT=3002; npm run dev:server
 
 | 路由 | 功能 |
 | --- | --- |
-| `/lobby` | 五款游戏入口、名称搜索、分类/人数/模式筛选、排序、实时房间列表、创建/加入、好友抽屉 |
+| `/lobby` | 八款游戏入口、名称搜索、分类/人数/模式筛选、排序、实时房间列表、创建/加入、好友抽屉 |
 | `/room/:roomId` | 房间码、复制邀请、座位、准备、AI 添加/移除、难度选择、规则、聊天、房主开局 |
 | `/game/:roomId` | 一屏沉浸牌桌、四向玩家席位、最近两位玩家出牌、席位倒计时、牌堆/匹配提示、扇形手牌、选择/拖拽出牌、独立 UNO 按钮、摸牌高亮、万能牌选色、动态/聊天抽屉、结果和再来一局 |
 | `/profile` | 玩家 ID、金币/等级、最近 20 局、排行榜、复制好友 ID |
@@ -232,7 +234,7 @@ AI 使用公开 `GomokuView`：简单从所有合法空位随机选点；中等�
 实时棋盘保存在原来的内存 / Redis 房间状态中，落子不逐步写 MySQL。结束时在原有事务内保存 Match、MatchPlayer、金币和按游戏的 Ranking，并在 `publicResult` 保存完整棋谱、规则、胜利线和结束原因；总排行榜汇总已开放游戏。平局的 `winnerId=null`，双方各获得参与奖励（10 金币、5 积分），不计胜场。新增迁移只将 `Match.winnerId` 改为可空，保留旧对局。无需新增 npm 依赖。
 
 1. Vite / 路由 / UI / mock 游戏目录。
-2. MySQL schema / Compose / 初始迁移 / 五款游戏 seed。
+2. MySQL schema / Compose / 初始迁移 / 八款游戏 seed。
 3. Socket.IO 房间生命周期、私有视图、聊天、权限和事务。
 4. 独立 UNO GameDefinition。
 5. 可见信息 AI、回合计时和延迟。

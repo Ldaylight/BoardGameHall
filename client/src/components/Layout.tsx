@@ -25,6 +25,7 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle } from './ui/dial
 import { useApp } from '@/stores/app';
 import { api, leaveRoom, perform } from '@/lib/api';
 import type { ProfileData } from '../../../shared/types';
+import { games } from '../../../shared/catalog';
 import { JoinRoomDialog } from './RoomDialogs';
 import { AudioButton } from './AudioController';
 import { PerformanceBar } from './PerformanceBar';
@@ -195,7 +196,7 @@ export function Layout() {
           </div>
           <NavLink to="/lobby" className="side-link">
             <LayoutGrid size={18} />
-            桌游大厅<span className="nav-count">05</span>
+            桌游大厅<span className="nav-count">{String(games.length).padStart(2, '0')}</span>
           </NavLink>
           <NavLink to="/profile" className="side-link">
             <Crown size={18} />

@@ -224,7 +224,9 @@
   width: min(1280px, calc(100% - 36px));
 }
 .hand-main {
-  display: flex;
+  --own-seat-width: 160px;
+  display: grid;
+  grid-template-columns: var(--own-seat-width) minmax(0, 1fr) var(--own-seat-width);
   gap: 18px;
   flex: 1;
   min-height: 0;
@@ -496,6 +498,7 @@
     padding: 6px;
   }
   .hand-main {
+    --own-seat-width: 90px;
     gap: 8px;
   }
   .game-screen .table-v2 .hand-heading small {
@@ -557,6 +560,9 @@
   }
 }
 @media (max-height: 600px) {
+  .hand-main {
+    --own-seat-width: 124px;
+  }
   .game-screen .table-v2 .position-left .opponent-seat {
     left: 17%;
   }

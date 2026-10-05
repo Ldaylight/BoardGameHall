@@ -87,7 +87,16 @@ export function registerSockets(io: GameServer, rooms: RoomService) {
         void respond(ack, async () => {
           const data = z
             .object({
-              gameId: z.enum(['uno', 'gomoku', 'xiangqi', 'doudizhu', 'holdem']),
+              gameId: z.enum([
+                'uno',
+                'gomoku',
+                'xiangqi',
+                'doudizhu',
+                'holdem',
+                'exploding-kittens',
+                'mahjong',
+                'billiards',
+              ]),
               name: z.string().trim().min(1).max(40),
               maxPlayers: z.number().int().min(2).max(6),
               allowAI: z.boolean(),

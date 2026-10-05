@@ -70,6 +70,22 @@ test('three-person Doudizhu: bidding, selection, pass reset, private reconnect, 
       sockets.push(await connect(p));
     }
     const sync = (i = 0) => request<RoomView>((ack) => sockets[i].emit('room:sync', { roomId }, ack));
+    const handArea = await a.locator('.ddz-hand-scroll').boundingBox();
+    expect(Math.abs(handArea!.x + handArea!.width / 2 - 720)).toBeLessThan(2);
+    // Hover must highlight the exposed strip without lifting it over the next card.
+    await a.waitForTimeout(1100);
+    const firstCard = a.locator('.ddz-hand-slot button').first();
+    const beforeHover = await firstCard.boundingBox();
+    const stacking = await firstCard.evaluate((card) => getComputedStyle(card.parentElement!).zIndex);
+    await firstCard.hover({ position: { x: 8, y: 60 } });
+    await a.waitForTimeout(200);
+    const afterHover = await firstCard.boundingBox();
+    expect(afterHover!.y).toBeCloseTo(beforeHover!.y, 0);
+    expect(afterHover!.x).toBeCloseTo(beforeHover!.x, 0);
+    expect(await firstCard.evaluate((card) => getComputedStyle(card.parentElement!).zIndex)).toBe(stacking);
+    expect(await firstCard.getAttribute('aria-pressed')).toBe('false');
+    await a.screenshot({ path: '.artifacts/doudizhu-hover-highlight.png' });
+    await a.mouse.move(10, 150);
     let view = await sync();
     const ids = view.players.map((p) => p.id);
     const first = ids.indexOf(doudizhuView(view).currentPlayerId);
@@ -131,6 +147,8 @@ test('three-person Doudizhu: bidding, selection, pass reset, private reconnect, 
       expect(await a.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
       const hand = await a.locator('.ddz-hand-area').boundingBox();
       expect(hand!.y + hand!.height).toBeLessThanOrEqual(viewport.height + 1);
+      const handCenter = await a.locator('.ddz-hand-scroll').boundingBox();
+      expect(Math.abs(handCenter!.x + handCenter!.width / 2 - viewport.width / 2)).toBeLessThan(2);
       await expect(a.getByTestId('performance-bar')).toBeVisible();
       await a.screenshot({
         path: `.artifacts/doudizhu-${viewport.width === 390 ? 'mobile' : 'landscape'}.png`,

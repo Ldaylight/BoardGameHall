@@ -19,6 +19,7 @@ import {
   Search,
   SlidersHorizontal,
   Sparkles,
+  Target,
   Users,
   X,
 } from 'lucide-react';
@@ -31,6 +32,16 @@ import { useApp } from '@/stores/app';
 import { XiangqiModeDialog } from '@/components/XiangqiModeDialog';
 import '../xiangqi.css';
 import { perform, request, socket } from '@/lib/api';
+const coverTitles: Record<GameId, string> = {
+  uno: 'UNO',
+  gomoku: 'GOMOKU',
+  xiangqi: 'XIANGQI',
+  doudizhu: 'DOU DIZHU',
+  holdem: 'TEXAS HOLD’EM',
+  'exploding-kittens': 'KITTEN CHAOS',
+  mahjong: 'MAHJONG',
+  billiards: 'BILLIARDS',
+};
 export function Lobby() {
   const [params, setParams] = useSearchParams();
   const navigate = useNavigate();
@@ -97,6 +108,7 @@ export function Lobby() {
           { id: 'cards', label: '卡牌派对', icon: Layers3 },
           { id: 'board', label: '经典棋类', icon: Hash },
           { id: 'strategy', label: '策略竞技', icon: Sparkles },
+          { id: 'sports', label: '休闲运动', icon: Target },
         ] as const
       ).map((c) => (
         <button
@@ -218,6 +230,7 @@ export function Lobby() {
             { id: 'cards', label: '卡牌' },
             { id: 'board', label: '棋类' },
             { id: 'strategy', label: '策略' },
+            { id: 'sports', label: '运动' },
           ].map((c) => (
             <button
               key={c.id}
@@ -225,7 +238,7 @@ export function Lobby() {
               className={category === c.id ? 'active' : ''}
             >
               {c.label}
-              {c.id === 'all' && <span>5</span>}
+              {c.id === 'all' && <span>{games.length}</span>}
             </button>
           ))}
         </div>
@@ -278,15 +291,7 @@ export function Lobby() {
               <span className="tile-index">0{games.findIndex((v) => v.id === g.id) + 1}</span>
               <GameArt game={g.id} />
               <div className="cover-title">
-                {g.id === 'uno'
-                  ? 'UNO'
-                  : g.id === 'gomoku'
-                    ? 'GOMOKU'
-                    : g.id === 'xiangqi'
-                      ? 'XIANGQI'
-                      : g.id === 'doudizhu'
-                        ? 'DOU DIZHU'
-                        : 'TEXAS HOLD’EM'}
+                {coverTitles[g.id]}
                 <span>{g.subtitle}</span>
               </div>
             </div>
@@ -315,14 +320,18 @@ export function Lobby() {
               </div>
               <div className="tile-bottom">
                 <div className="mode-badges">
-                  <span>
-                    <Users size={11} />
-                    多人
-                  </span>
-                  <span>
-                    <Bot size={11} />
-                    人机
-                  </span>
+                  {g.supportsMultiplayer && (
+                    <span>
+                      <Users size={11} />
+                      多人
+                    </span>
+                  )}
+                  {g.supportsAI && (
+                    <span>
+                      <Bot size={11} />
+                      人机
+                    </span>
+                  )}
                 </div>
                 <Button
                   variant="outline"

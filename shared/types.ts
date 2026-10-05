@@ -1,6 +1,7 @@
-export type GameId = 'uno' | 'gomoku' | 'xiangqi' | 'doudizhu' | 'holdem';
+export type GameId =
+  'uno' | 'gomoku' | 'xiangqi' | 'doudizhu' | 'holdem' | 'exploding-kittens' | 'mahjong' | 'billiards';
 export type Difficulty = 'easy' | 'medium' | 'hard';
-export type Category = 'all' | 'cards' | 'board' | 'strategy';
+export type Category = 'all' | 'cards' | 'board' | 'strategy' | 'sports';
 export interface GameMeta {
   id: GameId;
   name: string;
