@@ -1,0 +1,56 @@
+.seat-countdown {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: baseline;
+  justify-content: center;
+  gap: 3px;
+  min-width: 54px;
+  padding: 4px 8px;
+  border-radius: 14px;
+  background: rgb(var(--bg-rgb) / 0.84);
+  border: 1px solid #ead29b77;
+  box-shadow: 0 0 18px #e7c98122;
+  color: #efd59b;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 6;
+}
+.seat-countdown b {
+  font-size: 30px;
+  line-height: 1;
+}
+.seat-countdown small {
+  font-size: 10px;
+}
+.seat-countdown.urgent {
+  color: #ff9294;
+  border-color: #ff9294;
+}
+.seat-countdown.ready {
+  color: var(--accent);
+  border-color: var(--accent);
+  font-size: 13px;
+  font-weight: 700;
+}
+.own-turn-clock {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 36px;
+  grid-column: 1/-1;
+}
+@media (max-width: 600px), (max-height: 600px) {
+  .seat-countdown {
+    min-width: 40px;
+    padding: 3px 5px;
+    border-radius: 9px;
+    gap: 2px;
+  }
+  .seat-countdown b {
+    font-size: 24px;
+  }
+  .seat-countdown.ready {
+    font-size: 11px;
+  }
+}

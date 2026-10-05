@@ -313,4 +313,21 @@ describe('Exploding Kittens classic rules, authority and visibility', () => {
       [],
     );
   });
+  it('AI saves attacks on safe draws and chooses equal opponents without a first-seat bias', () => {
+    let s = fixture({ a: ['attack', 'skip', 'defuse'], b: ['taco'], c: ['melon'] });
+    s.deck = Array.from({ length: 30 }, (_, i) => card('taco', `safe${i}`));
+    for (const difficulty of ['medium', 'hard'] as const)
+      expect(kittens.aiMove(getKittensView(s, 'a'), 'a', difficulty).type).toBe('ek:draw');
+    s = fixture({ a: ['favor'], b: ['taco', 'melon', 'defuse'], c: ['taco', 'melon', 'defuse'] });
+    vi.spyOn(Math, 'random').mockReturnValue(0);
+    const first = kittens.aiMove(getKittensView(s, 'a'), 'a', 'hard');
+    vi.mocked(Math.random).mockReturnValue(0.999);
+    const second = kittens.aiMove(getKittensView(s, 'a'), 'a', 'hard');
+    expect(first).toMatchObject({ type: 'ek:play', targetId: 'b' });
+    expect(second).toMatchObject({ type: 'ek:play', targetId: 'c' });
+    // Unknown opponents' private cards/deck order do not affect the selected strategy.
+    s.hands.b = s.hands.b.map((c) => ({ ...c, kind: 'nope' }));
+    s.deck.reverse();
+    expect(kittens.aiMove(getKittensView(s, 'a'), 'a', 'hard')).toEqual(second);
+  });
 });

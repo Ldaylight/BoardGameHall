@@ -36,6 +36,7 @@ import { cardColors, PlayingCard } from '@/components/PlayingCard';
 import { AudioButton } from '@/components/AudioController';
 import { audioEngine } from '@/lib/audio-engine';
 import { GameAudioTracker } from '@/lib/game-audio';
+import { SeatCountdown } from '@/components/SeatCountdown';
 import { BackStack, BanMark, PlayerSeat } from '@/components/PlayerSeat';
 import { DrawFlights, DraggedCard } from '@/components/CardFlights';
 import { sortHand, type ScreenPoint } from '@/lib/table-presentation';
@@ -239,6 +240,11 @@ export function UnoTable({
         <UnoArena room={room} me={me} now={now} reduced={Boolean(reduced)} pendingDraws={draws.pendingDraws}>
           {isPlayer && (
             <section className="hand-panel">
+              {myTurn && (
+                <div className="own-turn-clock">
+                  <SeatCountdown playerId={me!} name={ownPlayer?.name ?? '你'} seconds={seconds} />
+                </div>
+              )}
               <div className="hand-main">
                 {ownPlayer && (
                   <div

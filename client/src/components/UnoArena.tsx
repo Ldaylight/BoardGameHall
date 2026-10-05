@@ -4,6 +4,7 @@ import type { RoomView } from '../../../shared/types';
 import { colorNames } from '../../../shared/games/uno';
 import { cardColors, PlayingCard } from './PlayingCard';
 import { BackStack, PlayerSeat } from './PlayerSeat';
+import { SeatCountdown } from './SeatCountdown';
 
 const positions: Record<number, string[]> = {
   2: ['bottom', 'top'],
@@ -75,6 +76,7 @@ export function UnoArena({
                   blocked={blocked}
                   playerId={id}
                 />
+                {active && <SeatCountdown playerId={id} name={player.name} seconds={seconds} />}
               </div>
               <div
                 className={`seat-play-position ${lastPlayerId === id ? 'latest-play' : ''}`}

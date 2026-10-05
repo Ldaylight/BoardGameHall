@@ -26,33 +26,59 @@ export function kittensAI(view: KittensView, id: string, difficulty: Difficulty)
     return { type: 'ek:give', cardId: card.id };
   }
   if (view.phase === 'insert')
-    return { type: 'ek:insert', index: view.turnsRemaining > 1 ? view.deckCount : 0 };
+    return {
+      type: 'ek:insert',
+      index:
+        view.turnsRemaining > 1
+          ? view.deckCount
+          : Math.floor(Math.random() * Math.min(view.alive.length - 1, view.deckCount + 1)),
+    };
   if (view.phase !== 'playing') return legal[0];
   const defuses = view.hand.filter((c) => c.kind === 'defuse').length;
-  const danger = view.future.length
-    ? view.future[0].kind === 'explode'
-    : view.deckCount <= view.alive.length * (difficulty === 'hard' ? 4 : 2) || view.turnsRemaining > 1;
-  const score = (action: KittensAction) => {
-    if (action.type === 'ek:draw') return danger && !defuses ? 0 : 5;
-    if (action.type !== 'ek:play') return 0;
-    const kind = view.hand.find((c) => c.id === action.cardIds[0])!.kind;
-    if (action.cardIds.length > 1)
-      return kind === 'defuse' || kind === 'nope'
-        ? -20
-        : action.cardIds.length === 3 && action.requestKind === 'defuse'
-          ? 14
-          : 7;
-    return (
-      (
-        {
-          attack: danger ? 12 : 1,
-          skip: danger ? 10 : 0,
-          favor: 8,
-          future: !view.future.length && danger ? 11 : 1,
-          shuffle: danger ? 6 : 0,
-        } as Record<string, number>
-      )[kind] ?? -10
-    );
+  const knownBomb = view.future[0]?.kind === 'explode';
+  const risk = view.future.length
+    ? knownBomb
+      ? 1
+      : 0
+    : Math.min(1, (view.alive.length - 1) / Math.max(1, view.deckCount));
+  const danger = risk * Math.max(1, view.turnsRemaining);
+  const drawValue = 8 - danger * (defuses ? 9 : 28);
+  const targetValue = (target?: string) => {
+    if (!target) return 0;
+    // Estimate resources from public hand counts only. No preference for seat, name or human/AI.
+    const count = view.handCounts[target] ?? 0;
+    return Math.min(3, count / 4);
   };
-  return [...legal].sort((a, b) => score(b) - score(a))[0];
+  const score = (action: KittensAction) => {
+    if (action.type === 'ek:draw') return drawValue;
+    if (action.type !== 'ek:play') return -100;
+    const cards = action.cardIds.map((cardId) => view.hand.find((c) => c.id === cardId)!);
+    const kind = cards[0].kind;
+    if (cards.length > 1) {
+      const cost = cards.reduce(
+        (n, c) => n + (c.kind === 'defuse' ? 16 : c.kind === 'nope' ? 8 : isCat(c.kind) ? 0.4 : 3),
+        0,
+      );
+      if (cards.length === 3 && action.requestKind !== 'defuse') return -10 - cost;
+      return (cards.length === 3 ? (defuses ? 7 : 13) : 8) + targetValue(action.targetId) - cost;
+    }
+    switch (kind) {
+      case 'attack':
+        return -2 + danger * (defuses ? 13 : 33) + Math.min(4, view.turnsRemaining - 1);
+      case 'skip':
+        return -3 + risk * (defuses ? 12 : 34);
+      case 'future':
+        return view.future.length ? -20 : 2 + danger * (defuses ? 5 : 13);
+      case 'shuffle':
+        return knownBomb ? 20 : -6;
+      case 'favor':
+        return 6 + targetValue(action.targetId) + (view.hand.length < 4 ? 2 : 0);
+      default:
+        return -100;
+    }
+  };
+  const scored = legal.map((action) => ({ action, value: score(action) }));
+  const best = Math.max(...scored.map((item) => item.value));
+  // Randomize equal strategic choices, so bots cannot gang up on a fixed first seat.
+  return pick(scored.filter((item) => item.value >= best - 0.15)).action;
 }

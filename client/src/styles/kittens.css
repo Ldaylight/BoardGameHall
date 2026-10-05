@@ -1348,3 +1348,45 @@
     display: none;
   }
 }
+
+.kittens-seat > .seat-countdown {
+  position: absolute;
+  top: 66%;
+  left: calc(100% + 12px);
+  transform: translateY(-50%);
+}
+.kittens-seat[data-clock-side='left'] > .seat-countdown {
+  left: auto;
+  right: calc(100% + 12px);
+}
+.kittens-hand-area > .own-turn-clock {
+  position: absolute;
+  top: 3px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+.kittens-hand-area:has(> .own-turn-clock) {
+  padding-top: 42px;
+}
+.kittens-reaction-clock {
+  grid-column: 1/-1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  min-height: 34px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.kittens-reaction-clock b {
+  font-size: 22px;
+  color: #e6c991;
+}
+@media (max-width: 600px) {
+  .kittens-seat > .seat-countdown {
+    left: calc(100% + 4px);
+  }
+  .kittens-seat[data-clock-side='left'] > .seat-countdown {
+    right: calc(100% + 4px);
+  }
+}

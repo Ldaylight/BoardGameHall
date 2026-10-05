@@ -4085,3 +4085,48 @@ body.reduce-motion *:after {
     font-size: 22px;
   }
 }
+
+/* Seat timers live beside the hand, outside the avatar/name card. */
+.opponent-seat > .seat-countdown {
+  position: absolute;
+  top: 58%;
+  left: calc(100% + 14px);
+  transform: translateY(-50%);
+}
+.table-position.position-right .opponent-seat > .seat-countdown {
+  left: auto;
+  right: calc(100% + 14px);
+}
+.table-position.position-top-right .opponent-seat > .seat-countdown {
+  left: auto;
+  right: calc(100% + 10px);
+}
+.hand-panel > .own-turn-clock {
+  margin-bottom: 4px;
+}
+@media (max-width: 600px) {
+  .opponent-seat > .seat-countdown {
+    left: calc(100% + 4px);
+  }
+  .table-position.position-right .opponent-seat > .seat-countdown,
+  .table-position.position-top-right .opponent-seat > .seat-countdown {
+    right: calc(100% + 4px);
+  }
+}
+
+.game-screen .hand-panel {
+  overflow: visible;
+}
+.game-screen .hand-panel > .own-turn-clock {
+  position: absolute;
+  top: -38px;
+  left: 50%;
+  transform: translateX(-50%);
+  margin: 0;
+  z-index: 10;
+}
+@media (max-width: 600px), (max-height: 600px) {
+  .game-screen .hand-panel > .own-turn-clock {
+    top: -32px;
+  }
+}

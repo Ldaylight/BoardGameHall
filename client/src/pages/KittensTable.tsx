@@ -24,6 +24,7 @@ import { GameAudioTracker } from '@/lib/game-audio';
 import { Avatar } from '@/components/Layout';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { SeatCountdown } from '@/components/SeatCountdown';
 import { KittenCard, KittenIllustration } from '@/components/KittenCard';
 import { AudioButton } from '@/components/AudioController';
 import { Chat } from '@/components/Chat';
@@ -63,12 +64,13 @@ function Seat({
 }) {
   const alive = game.alive.includes(player.id),
     active = !game.winnerId && game.actorId === player.id && game.phase !== 'reaction';
-  const responding = game.pending && alive && !game.pending.allowed.includes(player.id);
+  const responding = game.phase === 'reaction' && alive; // Other players' acknowledgements are private.
   return (
     <div
       className={`kittens-seat ${own ? 'kittens-seat-own' : ''} ${active ? 'active' : ''} ${alive ? '' : 'eliminated'}`}
       style={position ? { left: `${position[0]}%`, top: `${position[1]}%` } : undefined}
       data-player-id={player.id}
+      data-clock-side={position && position[0] > 60 ? 'left' : 'right'}
     >
       <div className="kittens-seat-name">
         <Avatar name={player.name} ai={player.isAI} />
@@ -91,6 +93,13 @@ function Seat({
           </small>
         </div>
       </div>
+      {!own && active && (
+        <SeatCountdown
+          playerId={player.id}
+          name={player.name}
+          seconds={Math.ceil((game.turnDeadline - now) / 1000)}
+        />
+      )}
       {!own && alive && (
         <div
           className="kittens-opponent-hand"
@@ -469,16 +478,19 @@ export function KittensTable({
         )}
       </main>
       <footer className="kittens-hand-area">
-        {!game.winnerId && (
-          <div
-            className={`kittens-countdown ${game.turnDeadline - now < 5000 ? 'urgent' : ''}`}
-            data-testid="kittens-countdown"
-          >
-            <span>{game.phase === 'reaction' ? '否决响应' : `${seatName(game.actorId)} · 行动倒计时`}</span>
-            <b>
-              {Math.max(0, Math.ceil((game.turnDeadline - now) / 1000))}
-              <small>秒</small>
-            </b>
+        {!game.winnerId && game.actorId === me && game.phase !== 'reaction' && (
+          <div className="own-turn-clock">
+            <SeatCountdown
+              playerId={me!}
+              name={mine?.name ?? '你'}
+              seconds={Math.ceil((game.turnDeadline - now) / 1000)}
+            />
+          </div>
+        )}
+        {game.phase === 'reaction' && (
+          <div className="kittens-reaction-clock">
+            <span>否决响应窗口</span>
+            <b>{Math.max(0, Math.ceil((game.turnDeadline - now) / 1000))} 秒</b>
           </div>
         )}
         <div className="kittens-actions">
@@ -685,8 +697,8 @@ export function KittensTable({
                 轮到你时可连续打出普通效果牌，摸一张结束一次回合。攻击让下一家承担两轮，被攻击者再攻击会转移尚未完成的轮数并额外加两轮。跳过或拆弹只结束一次回合。
               </p>
               <p>
-                每张主动效果或同名组合进入 12
-                秒否决窗口；所有存活玩家点击“不否决”可提前结算。否决能再被否决；摸牌、炸弹及拆弹不能被否决。
+                每张主动效果或同名组合进入 12 秒否决窗口；没有否决牌时，系统在随机 3
+                秒内自动选择“不否决”。其他玩家的确认状态不公开；所有玩家确认后提前结算。否决能再被否决；摸牌、炸弹及拆弹不能被否决。
               </p>
               <p>
                 索取由目标选择赠牌。同名两张（含普通效果牌）随机偷一张；同名三张可索取指定牌型，目标没有则无所得。普通猫牌不能单张打出。采用当前经典版规则，不包含扩展卡和旧版五张回收组合。

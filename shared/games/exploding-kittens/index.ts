@@ -347,6 +347,7 @@ export function getKittensView(s: KittensState, id: string | null): KittensView 
   const { hands, deck, eliminatedHands: _grave, bomb, future, ...visible } = s;
   return structuredClone({
     ...visible,
+    pending: s.pending ? { ...s.pending, allowed: id && s.pending.allowed.includes(id) ? [id] : [] } : null,
     hand: id && s.alive.includes(id) ? hands[id] : [],
     handCounts: Object.fromEntries(s.players.map((p) => [p, hands[p].length])),
     deckCount: deck.length,

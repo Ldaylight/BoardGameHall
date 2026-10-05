@@ -74,7 +74,22 @@ test('Kittens: three humans, private future, gifts/defusing, refresh, full game,
     const ids = (await sync()).players.map((p) => p.id);
     const act = async (i: number, action: KittensAction) => {
       const r = await sync(i);
-      await request((ack) => sockets[i].emit('game:action', { roomId, revision: r.revision, action }, ack));
+      try {
+        await request((ack) => sockets[i].emit('game:action', { roomId, revision: r.revision, action }, ack));
+      } catch (error) {
+        if (action.type !== 'ek:allow' || !(error instanceof Error) || !error.message.includes('状态已更新'))
+          throw error;
+        const current = await sync(i),
+          view = kittensView(current);
+        if (
+          view.phase === 'reaction' &&
+          view.pending!.id === action.pendingId &&
+          !view.pending!.allowed.includes(ids[i])
+        )
+          await request((ack) =>
+            sockets[i].emit('game:action', { roomId, revision: current.revision, action }, ack),
+          );
+      }
     };
     for (let i = 0; i < 3; i++) {
       const g = kittensView(await sync(i));
@@ -101,7 +116,8 @@ test('Kittens: three humans, private future, gifts/defusing, refresh, full game,
     for (let i = 1; i < flat.length; i++)
       expect(flat[i].x - flat[i - 1].x).toBeGreaterThanOrEqual(flat[i - 1].width - 1);
     await expect(a.locator('.kittens-seat .kittens-seat-clock')).toHaveCount(0);
-    await expect(a.getByTestId('kittens-countdown')).toBeVisible();
+    await expect(a.getByTestId('seat-countdown')).toBeVisible();
+    await expect(a.locator('.kittens-seat-name [data-testid="seat-countdown"]')).toHaveCount(0);
     await a.screenshot({ path: '.artifacts/kittens-desktop.png' });
     for (const viewport of [
       { width: 390, height: 844 },
@@ -125,8 +141,17 @@ test('Kittens: three humans, private future, gifts/defusing, refresh, full game,
         g = kittensView(r);
       if (g.phase === 'finished') break;
       if (g.phase === 'reaction') {
-        const responder = ids.findIndex((id) => g.alive.includes(id) && !g.pending!.allowed.includes(id));
-        await act(responder, { type: 'ek:allow', pendingId: g.pending!.id });
+        for (let i = 0; i < ids.length; i++) {
+          const current = kittensView(await sync(i));
+          if (
+            current.phase === 'reaction' &&
+            current.alive.includes(ids[i]) &&
+            !current.pending!.allowed.includes(ids[i])
+          ) {
+            await act(i, { type: 'ek:allow', pendingId: current.pending!.id });
+            break;
+          }
+        }
         continue;
       }
       const actor = ids.indexOf(g.actorId),

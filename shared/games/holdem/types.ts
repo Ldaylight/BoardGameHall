@@ -8,7 +8,8 @@ export interface HoldemCard {
 export type Street = 'preflop' | 'flop' | 'turn' | 'river';
 export type HoldemAction =
   | { type: 'poker:fold' | 'poker:check' | 'poker:call' | 'poker:all-in' | 'poker:next' }
-  | { type: 'poker:raise'; amount: number };
+  | { type: 'poker:raise'; amount: number }
+  | { type: 'poker:ready'; ready: boolean };
 export interface HoldemOptions {
   startingStack: number;
   smallBlind: number;
@@ -80,6 +81,7 @@ export interface HoldemState {
   handNumber: number;
   turnNumber: number;
   turnDeadline: number;
+  readyPlayers: string[];
   winnerId: string | null;
   options: HoldemOptions;
   lastResult: HandResult | null;

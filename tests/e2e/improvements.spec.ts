@@ -112,8 +112,8 @@ test('four player table has cardinal seats, retains public cards and returns to 
     for (const page of pages) await expect(page).toHaveURL(/\/game\//);
     await expect(host.locator('.page-heading, .breadcrumb')).toHaveCount(0);
     await expect(host.locator('.uno-call')).toBeDisabled();
-    await expect(host.locator('.seat-timer')).toHaveCount(1);
-    await expect(host.locator('.position-bottom .seat-timer')).toBeVisible();
+    await expect(host.getByTestId('seat-countdown')).toHaveCount(1);
+    await expect(host.locator('.own-turn-clock [data-testid="seat-countdown"]')).toBeVisible();
     await expect(host.getByRole('button', { name: '牌局动态', exact: true })).toHaveAttribute(
       'aria-expanded',
       'false',
@@ -158,6 +158,14 @@ test('four player table has cardinal seats, retains public cards and returns to 
       }
     }
     expect(played).toBe(true);
+    await expect(host.getByTestId('seat-countdown')).toHaveCount(1);
+    await expect(host.getByTestId('seat-countdown')).toBeVisible();
+    await expect(host.locator('.table-player [data-testid="seat-countdown"]')).toHaveCount(0);
+    const timerBox = await host.getByTestId('seat-countdown').boundingBox();
+    const viewport = host.viewportSize()!;
+    expect(timerBox!.x).toBeGreaterThanOrEqual(0);
+    expect(timerBox!.x + timerBox!.width).toBeLessThanOrEqual(viewport.width);
+    expect(timerBox!.y + timerBox!.height).toBeLessThanOrEqual(viewport.height);
     const publicCards = await host
       .locator('.played-card button')
       .evaluateAll((cards) => cards.map((c) => c.getAttribute('aria-label')));

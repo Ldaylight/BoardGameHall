@@ -562,19 +562,36 @@ try {
     if (g.phase === 'finished') break;
     assert.equal('hands' in g || 'deck' in g || 'eliminatedHands' in g, false);
     assert.equal(await db.match.count({ where: { roomId: kr.id } }), 0);
-    const actor = ddzUsers.findIndex((u) =>
-      g.phase === 'reaction'
-        ? g.alive.includes(u.user.id) && !g.pending!.allowed.includes(u.user.id)
-        : u.user.id === g.actorId,
-    );
-    const own = kittensView(await syncK(actor));
+    let actor = ddzUsers.findIndex((u) => u.user.id === g.actorId);
+    if (g.phase === 'reaction') {
+      actor = -1;
+      for (let i = 0; i < ddzUsers.length; i++) {
+        const own = kittensView(await syncK(i));
+        if (
+          own.phase === 'reaction' &&
+          own.alive.includes(ddzUsers[i].user.id) &&
+          !own.pending!.allowed.includes(ddzUsers[i].user.id)
+        ) {
+          actor = i;
+          break;
+        }
+      }
+      if (actor < 0) continue;
+    }
+    const current = await syncK(actor),
+      own = kittensView(current);
+    if (own.phase !== g.phase) continue;
     const action =
-      g.phase === 'reaction'
-        ? { type: 'ek:allow' as const, pendingId: g.pending!.id }
+      own.phase === 'reaction'
+        ? { type: 'ek:allow' as const, pendingId: own.pending!.id }
         : kittens.aiMove(own, ddzUsers[actor].user.id, 'medium');
-    await request((ack) =>
-      ddzSockets[actor].emit('game:action', { roomId: kr.id, revision: r.revision, action }, ack),
-    );
+    try {
+      await request((ack) =>
+        ddzSockets[actor].emit('game:action', { roomId: kr.id, revision: current.revision, action }, ack),
+      );
+    } catch (error) {
+      if (!(error instanceof Error) || !error.message.includes('状态已更新')) throw error;
+    }
   }
   const kEnded = await syncK(),
     kg = kittensView(kEnded);
@@ -659,15 +676,10 @@ try {
       const index = ddzUsers.findIndex((u) => u.user.id === g.currentPlayerId);
       const own = holdemView(await syncP(index));
       if (g.phase === 'showdown') {
-        const remaining = Math.max(0, g.turnDeadline - 3000 - Date.now());
-        if (remaining) await wait(remaining + 20);
-        await request((ack) =>
-          ddzSockets[index].emit(
-            'game:action',
-            { roomId: pr.id, revision: r.revision, action: { type: 'poker:next' } },
-            ack,
-          ),
-        );
+        for (let i = 0; i < ddzUsers.length; i++) {
+          if (g.alive.includes(ddzUsers[i].user.id))
+            await request((ack) => ddzSockets[i].emit('room:ready', { roomId: pr.id, ready: true }, ack));
+        }
       } else {
         const legal = holdem.getLegalActions(own, g.currentPlayerId);
         const action =
@@ -711,10 +723,23 @@ try {
     await syncP();
     assert.equal(await db.match.count({ where: { roomId: pr.id } }), 1);
     assert.equal(await db.chatMessage.count({ where: { roomId: pr.id } }), 1);
-    await request((ack) => sa.emit('room:rematch', { roomId: pr.id }, ack));
-    assert.equal((await syncP()).game, null);
+    for (let i = 0; i < ddzUsers.length; i++) {
+      await request((ack) => ddzSockets[i].emit('room:ready', { roomId: pr.id, ready: true }, ack));
+      if (i < ddzUsers.length - 1) assert.equal((await syncP()).matchId, pokerEnded.matchId);
+    }
+    const restarted = await syncP();
+    assert.equal(restarted.status, 'playing');
+    assert.notEqual(restarted.matchId, pokerEnded.matchId);
+    assert.equal(holdemView(restarted).alive.length, 3);
+    assert.equal(await db.match.count({ where: { roomId: pr.id } }), 1);
+    for (let i = 0; i < ddzUsers.length; i++) {
+      const before: ProfileData = beforePoker[i];
+      const won: boolean = pg.winnerId === ddzUsers[i].user.id;
+      const after = await api<ProfileData>('/profile', 'GET', undefined, ddzUsers[i].token);
+      assert.equal(after.user.coins, before.user.coins + (won ? 100 : 10));
+    }
     console.log(
-      'PASS: Holdem MySQL 3-human tournament, secret hole cards/reconnect, public showdown replay, conserved virtual chips, exactly-once final rewards/ranking, chat and rematch.',
+      'PASS: Holdem MySQL 3-human tournament, secret hole cards/reconnect, public showdown replay, conserved virtual chips, exactly-once final rewards/ranking, chat, unanimous next-hand readiness and fresh-tournament readiness.',
     );
   }
   console.log(

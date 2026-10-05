@@ -95,6 +95,7 @@ function finishHand(s: HoldemState) {
     uncontested,
     stacks: { ...s.stacks },
   };
+  s.readyPlayers = [];
   s.lastResult = result;
   s.history.push(result);
   s.pot = 0;
@@ -116,7 +117,8 @@ function finishHand(s: HoldemState) {
   } else {
     s.phase = 'showdown';
     s.currentIndex = nextIndex(s, s.dealerIndex);
-    touch(s, 6);
+    touch(s);
+    s.turnDeadline = 0;
   }
 }
 function dealStreet(s: HoldemState) {
@@ -177,6 +179,7 @@ function beginHand(s: HoldemState, first = false) {
     const sb = previousAlive(bb);
     s.dealerIndex = s.alive.length === 2 ? sb : previousAlive(sb);
   }
+  s.readyPlayers = [];
   s.handNumber++;
   const multiplier = 2 ** Math.min(14, Math.floor((s.handNumber - 1) / s.options.blindEvery));
   s.smallBlind = s.options.smallBlind * multiplier;
@@ -278,6 +281,7 @@ export function createHoldemState(players: string[], options?: Partial<HoldemOpt
     handNumber: 0,
     turnNumber: 0,
     turnDeadline: 0,
+    readyPlayers: [],
     winnerId: null,
     options: config,
     lastResult: null,
@@ -291,11 +295,23 @@ export function createHoldemState(players: string[], options?: Partial<HoldemOpt
 }
 export function applyHoldemAction(state: HoldemState, id: string, action: HoldemAction): HoldemState {
   if (!state.players.includes(id)) throw Error('观战玩家不能操作');
+  if (action.type === 'poker:ready') {
+    if (state.phase === 'betting') throw Error('本手尚未结束');
+    if (!state.winnerId && !state.alive.includes(id)) throw Error('已淘汰玩家无需准备下一手');
+    const s = structuredClone(state);
+    s.readyPlayers = action.ready
+      ? [...new Set([...s.readyPlayers, id])]
+      : s.readyPlayers.filter((p) => p !== id);
+    if (!s.winnerId && s.alive.every((p) => s.readyPlayers.includes(p))) beginHand(s);
+    else if (!s.winnerId)
+      s.currentIndex = s.players.indexOf(s.alive.find((p) => !s.readyPlayers.includes(p))!);
+    return s;
+  }
   if (state.winnerId) throw Error('比赛已经结束');
   const s = structuredClone(state);
   if (action.type === 'poker:next') {
     if (s.phase !== 'showdown') throw Error('本手尚未结束');
-    if (Date.now() < s.turnDeadline - 3000) throw Error('请先查看本手结算');
+    if (!s.alive.every((p) => s.readyPlayers.includes(p))) throw Error('请等待所有存活玩家准备');
     beginHand(s);
     return s;
   }
@@ -374,8 +390,8 @@ export function getHoldemView(s: HoldemState, id: string | null): HoldemView {
   });
 }
 export function holdemLegalActions(v: HoldemView, id: string): HoldemAction[] {
-  if (v.phase === 'showdown' && v.players.includes(id) && Date.now() >= v.turnDeadline - 3000)
-    return [{ type: 'poker:next' }];
+  if (v.phase !== 'betting' && v.players.includes(id) && (v.winnerId || v.alive.includes(id)))
+    return v.readyPlayers.includes(id) ? [] : [{ type: 'poker:ready', ready: true }];
   if (!canBet(v, id)) return [];
   const actions: HoldemAction[] = [
     { type: 'poker:fold' },

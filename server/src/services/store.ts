@@ -18,6 +18,7 @@ export interface StoredRoom {
   resultSaved: boolean;
   updatedAt: number;
   nextActionAt: number | null;
+  kittenResponse?: { key: string; due: Record<string, number> };
 }
 export interface RoomStore {
   get(id: string): Promise<StoredRoom | null>;

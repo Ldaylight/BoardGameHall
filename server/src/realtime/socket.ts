@@ -10,6 +10,7 @@ const action = z.union([
   z
     .object({ type: z.enum(['poker:fold', 'poker:check', 'poker:call', 'poker:all-in', 'poker:next']) })
     .strict(),
+  z.object({ type: z.literal('poker:ready'), ready: z.boolean() }).strict(),
   z.object({ type: z.literal('poker:raise'), amount: z.number().int().min(1).max(60000) }).strict(),
   z
     .object({

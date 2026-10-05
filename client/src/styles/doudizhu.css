@@ -1057,3 +1057,34 @@
     width: calc(var(--hand-count) * 25px + 75px);
   }
 }
+
+.ddz-seat > .seat-countdown {
+  position: absolute;
+  top: 60%;
+  left: calc(100% + 12px);
+  transform: translateY(-50%);
+}
+.ddz-seat-right > .seat-countdown {
+  left: auto;
+  right: calc(100% + 12px);
+}
+.ddz-hand-area > .own-turn-clock {
+  position: absolute;
+  top: 2px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+.ddz-hand-area:has(> .own-turn-clock) {
+  padding-top: 36px;
+}
+@media (max-width: 600px) {
+  .ddz-seat > .seat-countdown {
+    left: calc(100% + 4px);
+  }
+  .ddz-seat-right > .seat-countdown {
+    right: calc(100% + 4px);
+  }
+  .ddz-hand-area:has(> .own-turn-clock) {
+    padding-top: 32px;
+  }
+}

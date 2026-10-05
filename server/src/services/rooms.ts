@@ -251,9 +251,14 @@ export class RoomService {
   }
   async ready(user: User, id: string, ready: boolean) {
     await this.mutate(id, user.id, async (r) => {
-      if (r.status !== 'waiting') throw new Error('牌局开始后不能修改准备状态');
       const p = r.players.find((p) => p.id === user.id);
-      if (!p) throw new Error('观战玩家无法准备');
+      if (!p || p.hasLeft) throw new Error('观战玩家无法准备');
+      if (r.game && isHoldem(r.game) && r.game.phase !== 'betting') {
+        this.applyAction(r, user.id, { type: 'poker:ready', ready }, r.revision);
+        await this.restartPokerIfReady(r);
+        return;
+      }
+      if (r.status !== 'waiting') throw new Error('牌局开始后不能修改准备状态');
       p.ready = ready;
     });
   }
@@ -315,11 +320,31 @@ export class RoomService {
       r.nextActionAt = null;
       return;
     }
-    const p = this.actor(r);
-    if (isHoldem(r.game) && r.game.phase === 'showdown') {
-      r.nextActionAt = r.game.turnDeadline;
+    if (isHoldem(r.game) && r.game.phase !== 'betting') {
+      r.nextActionAt = null;
       return;
     }
+    if (isKittens(r.game) && r.game.phase === 'reaction' && r.game.pending) {
+      const game = r.game,
+        pending = game.pending!,
+        key = `${pending.id}:${pending.nopes}`;
+      if (r.kittenResponse?.key !== key) r.kittenResponse = { key, due: {} };
+      const jobs = r.kittenResponse!;
+      for (const player of r.players) {
+        const automatic =
+          !game.hands[player.id]?.some((c) => c.kind === 'nope') ||
+          player.isAI ||
+          !player.connected ||
+          player.hasLeft;
+        if (!game.alive.includes(player.id) || pending.allowed.includes(player.id) || !automatic)
+          delete jobs.due[player.id];
+        else jobs.due[player.id] ??= Date.now() + 750 + randomInt(2101);
+      }
+      r.nextActionAt = Math.min(pending.deadline, ...Object.values(jobs.due));
+      return;
+    }
+    r.kittenResponse = undefined;
+    const p = this.actor(r);
     r.nextActionAt =
       p &&
       (p.isAI || (!p.connected && !((isGomoku(r.game) || isXiangqi(r.game)) && r.game.options.timeoutLoss)))
@@ -347,9 +372,15 @@ export class RoomService {
   }
   // Both Socket.IO game:action and AI actions enter this authority/revision path.
   private applyAction(r: StoredRoom, playerId: string, action: GameAction, revision: number) {
-    if (r.status !== 'playing' || !r.game) throw new Error('对局尚未开始或已结束');
+    if (
+      !r.game ||
+      (r.status !== 'playing' &&
+        !(r.status === 'finished' && r.resultSaved && isHoldem(r.game) && action.type === 'poker:ready'))
+    )
+      throw new Error('对局尚未开始或已结束');
     if (revision !== r.revision) throw new Error('状态已更新，请按最新状态重试');
     r.game = applyGameAction(r.game, playerId, action);
+    this.preparePokerBots(r);
     this.schedule(r);
     if (gameFinished(r.game)) r.status = 'finished';
   }
@@ -358,7 +389,39 @@ export class RoomService {
       if (!r.players.some((p) => p.id === user.id && !p.hasLeft))
         throw new Error('观战玩家无法操作手牌或棋子');
       this.applyAction(r, user.id, action, revision);
+      await this.restartPokerIfReady(r);
     });
+  }
+  private preparePokerBots(r: StoredRoom) {
+    if (!r.game || !isHoldem(r.game) || r.game.phase === 'betting') return;
+    const required = r.game.winnerId ? r.game.players : r.game.alive;
+    for (const p of r.players) {
+      if ((p.isAI || p.hasLeft) && required.includes(p.id) && !r.game.readyPlayers.includes(p.id))
+        r.game = holdem.applyAction(r.game, p.id, { type: 'poker:ready', ready: true });
+      if (r.game.phase === 'betting') break;
+    }
+  }
+  private async restartPokerIfReady(r: StoredRoom) {
+    if (!r.game || !isHoldem(r.game) || !r.game.winnerId || !r.resultSaved) return;
+    const present = r.players.filter((p) => !p.hasLeft);
+    if (
+      present.length < 2 ||
+      !present.some((p) => !p.isAI) ||
+      !present.every((p) => r.game && isHoldem(r.game) && r.game.readyPlayers.includes(p.id))
+    )
+      return;
+    for (const p of r.players.filter((p) => p.hasLeft)) await removeSeatRecord(r, p.id);
+    r.players = present;
+    r.game = createGame(
+      r.options,
+      present.map((p) => p.id),
+    );
+    r.status = 'playing';
+    r.matchId = randomUUID();
+    r.startedAt = new Date().toISOString();
+    r.resultSaved = false;
+    this.schedule(r);
+    await updateRoomRecord(r);
   }
   async chat(user: User, id: string, text: string) {
     await this.mutate(id, user.id, async (r) => {
@@ -393,6 +456,7 @@ export class RoomService {
             await updateRoomRecord(r);
           }
         }
+        this.preparePokerBots(r);
         this.schedule(r);
         return;
       }
@@ -407,6 +471,7 @@ export class RoomService {
         }
       }
       await removeSeatRecord(r, user.id);
+      await this.restartPokerIfReady(r);
     });
   }
   async rematch(user: User, id: string) {
@@ -483,6 +548,7 @@ export class RoomService {
         continue;
       }
       if (snapshot.status !== 'playing' || !snapshot.game) continue;
+      if (isHoldem(snapshot.game) && snapshot.game.phase !== 'betting') continue;
       const due =
         isKittens(snapshot.game) && snapshot.game.phase === 'reaction'
           ? Math.min(snapshot.nextActionAt ?? Infinity, snapshot.game.turnDeadline)
@@ -491,14 +557,28 @@ export class RoomService {
       await this.store.lock(`room:${snapshot.id}`, async () => {
         const r = await this.requireRoom(snapshot.id);
         if (r.status !== 'playing' || !r.game) return;
+        if (isHoldem(r.game) && r.game.phase !== 'betting') return;
         const currentDue =
           isKittens(r.game) && r.game.phase === 'reaction'
             ? Math.min(r.nextActionAt ?? Infinity, r.game.turnDeadline)
             : (r.nextActionAt ?? r.game.turnDeadline);
         if (Date.now() < currentDue) return;
-        if (isKittens(r.game) && r.game.phase === 'reaction' && Date.now() >= r.game.turnDeadline) {
-          r.game = resolveKittensPending(r.game);
-          this.schedule(r);
+        if (isKittens(r.game) && r.game.phase === 'reaction') {
+          if (Date.now() >= r.game.turnDeadline) {
+            r.game = resolveKittensPending(r.game);
+            this.schedule(r);
+          } else {
+            const key = r.kittenResponse?.key;
+            const dueJobs = Object.entries(r.kittenResponse?.due ?? {}).filter(([, at]) => at <= Date.now());
+            for (const [id] of dueJobs) {
+              if (!isKittens(r.game) || r.game.phase !== 'reaction' || r.kittenResponse?.key !== key) break;
+              const p = r.players.find((p) => p.id === id)!;
+              const action = r.game.hands[id].some((c) => c.kind === 'nope')
+                ? kittens.aiMove(kittens.getView(r.game, id), id, p.difficulty)
+                : { type: 'ek:allow' as const, pendingId: r.game.pending!.id };
+              this.applyAction(r, id, action, r.revision);
+            }
+          }
           await this.commit(r);
           return;
         }
@@ -513,9 +593,7 @@ export class RoomService {
           this.schedule(r);
         } else {
           const action = isHoldem(r.game)
-            ? r.game.phase === 'showdown'
-              ? { type: 'poker:next' as const }
-              : await computeHoldemMove(holdem.getView(r.game, p.id), p.id, p.difficulty)
+            ? await computeHoldemMove(holdem.getView(r.game, p.id), p.id, p.difficulty)
             : isKittens(r.game)
               ? kittens.aiMove(kittens.getView(r.game, p.id), p.id, p.difficulty)
               : isDoudizhu(r.game)

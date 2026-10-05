@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { Avatar } from '@/components/Layout';
 import { AudioButton } from '@/components/AudioController';
+import { SeatCountdown } from '@/components/SeatCountdown';
 import { PokerCard } from '@/components/PokerCard';
 import { Chat } from '@/components/Chat';
 import { MatchResultDialog } from '@/components/MatchResultDialog';
@@ -44,12 +45,14 @@ function Seat({
             {!player.connected ? ' · 离线托管' : player.isAI ? ' · AI' : ''}
           </small>
         </div>
-        {active && (
-          <span className="ddz-clock" aria-label={`${player.name} 回合倒计时`}>
-            {Math.max(0, Math.ceil((game.turnDeadline - now) / 1000))}
-          </span>
-        )}
       </div>
+      {active && position !== 'self' && (
+        <SeatCountdown
+          playerId={player.id}
+          name={player.name}
+          seconds={Math.ceil((game.turnDeadline - now) / 1000)}
+        />
+      )}
       {game.phase === 'bidding' && bid && (
         <span className="ddz-bid-badge">{bid.value ? `${bid.value} 分` : '不叫'}</span>
       )}
@@ -258,6 +261,15 @@ export function DoudizhuTable({
         )}
       </div>
       <footer className="ddz-hand-area">
+        {mine && game.currentPlayerId === me && game.phase !== 'finished' && (
+          <div className="own-turn-clock">
+            <SeatCountdown
+              playerId={me!}
+              name={mine!.name}
+              seconds={Math.ceil((game.turnDeadline - now) / 1000)}
+            />
+          </div>
+        )}
         <Seat player={ordered[0]} game={game} position="self" now={now} />
         <div className="ddz-hand-body">
           <div className="ddz-action-row">

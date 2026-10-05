@@ -36,7 +36,7 @@ async function create(page: Page, seats: string) {
   await page.getByRole('dialog').getByRole('button', { name: '创建房间', exact: true }).click();
   await expect(page.locator('.room-code')).toBeVisible();
 }
-test('Holdem: three humans, observer privacy, four streets, all-in, results, refresh and rematch', async ({
+test('Holdem: three humans, observer privacy, four streets, all-in, results, refresh and unanimous readiness', async ({
   browser,
 }) => {
   test.setTimeout(120000);
@@ -93,7 +93,13 @@ test('Holdem: three humans, observer privacy, four streets, all-in, results, ref
     await expect(a.locator('.chat-message')).toContainText('翻牌见');
     await a.getByRole('button', { name: '关闭', exact: true }).click();
     await a.getByLabel('加注本轮总额').fill('80');
+    await expect(a.getByTestId('seat-countdown')).toHaveAttribute('data-player-id', ids[0]);
     await a.getByRole('button', { name: '加注', exact: true }).click();
+    await expect(a.getByTestId('holdem-chip-flight').first()).toBeVisible();
+    const flying = a.getByTestId('holdem-chip-flight').first();
+    await expect(flying).toHaveAttribute('data-player-id', ids[0]);
+    expect(await flying.evaluate((el) => getComputedStyle(el).animationName)).toBe('holdem-chip-travel');
+    await expect(a.getByTestId('seat-countdown')).toHaveAttribute('data-player-id', ids[1]);
     for (let n = 0; n < 2; n++) {
       const g = holdemView(await sync()),
         index = ids.indexOf(g.currentPlayerId);
@@ -127,22 +133,44 @@ test('Holdem: three humans, observer privacy, four streets, all-in, results, ref
     await expect(a.getByTestId('holdem-hand-result')).toBeVisible();
     expect(holdemView(await sync()).community).toHaveLength(5);
     expect(Object.keys(holdemView(await sync(3)).revealed)).toHaveLength(3);
+    await expect(a.locator('.holdem-showdown-dialog')).toBeVisible();
+    await expect(a.getByTestId('holdem-showdown-player')).toHaveCount(3);
+    await expect(a.locator('.holdem-showdown-cards .ddz-poker-face')).toHaveCount(15);
+    await expect(watch.getByTestId('holdem-showdown-player')).toHaveCount(3);
+    await a.screenshot({ path: '.artifacts/holdem-best-five.png' });
+    for (const p of pages)
+      await p.locator('.holdem-showdown-dialog').getByRole('button', { name: '关闭', exact: true }).click();
     const beforeHand = holdemView(await sync()).handNumber;
-    await expect
-      .poll(async () => holdemView(await sync()).handNumber, { timeout: 10000 })
-      .toBe(beforeHand + 1);
-    for (let n = 0; n < 20; n++) {
+    await a.getByRole('button', { name: '准备', exact: true }).click();
+    await expect(b.getByTestId('seat-countdown').filter({ hasText: '准备' })).toHaveAttribute(
+      'data-player-id',
+      ids[0],
+    );
+    await a.reload();
+    await expect(a.getByRole('button', { name: '取消准备', exact: true })).toBeVisible();
+    await expect(a.locator('.holdem-showdown-dialog')).toHaveCount(0);
+    await b.getByRole('button', { name: '准备', exact: true }).click();
+    expect(holdemView(await sync()).handNumber).toBe(beforeHand);
+    await c.getByRole('button', { name: '准备', exact: true }).click();
+    await expect.poll(async () => holdemView(await sync()).handNumber).toBe(beforeHand + 1);
+    for (let n = 0; n < 50; n++) {
       const r = await sync(),
         g = holdemView(r);
       if (g.winnerId) break;
       if (g.phase === 'showdown') {
-        await expect
-          .poll(async () => holdemView(await sync()).handNumber, { timeout: 10000 })
-          .toBeGreaterThan(g.handNumber);
+        for (const p of pages)
+          if (await p.locator('.holdem-showdown-dialog').count())
+            await p
+              .locator('.holdem-showdown-dialog')
+              .getByRole('button', { name: '关闭', exact: true })
+              .click();
+        for (let i = 0; i < ids.length; i++)
+          if (g.alive.includes(ids[i]))
+            await pages[i].getByRole('button', { name: '准备', exact: true }).click();
         continue;
       }
-      const i = ids.indexOf(g.currentPlayerId);
-      const own = holdemView(await sync(i));
+      const i = ids.indexOf(g.currentPlayerId),
+        own = holdemView(await sync(i));
       await act(i, {
         type:
           own.canRaise || own.maxRaiseTo <= own.currentBet
@@ -156,10 +184,18 @@ test('Holdem: three humans, observer privacy, four streets, all-in, results, ref
     expect(holdemView(ended).winnerId).toBeTruthy();
     expect(ended.resultSaved).toBe(true);
     expect(Object.values(holdemView(ended).stacks).reduce((a, b) => a + b, 0)).toBe(3000);
-    await expect(a.locator('.match-result-dialog')).toBeVisible();
-    await a.getByRole('button', { name: '再来一局', exact: true }).click();
-    await expect(a).toHaveURL(/\/room\//);
-    expect((await sync()).game).toBeNull();
+    for (const p of pages) {
+      await expect(p.locator('.holdem-showdown-dialog')).toBeVisible();
+      await p.locator('.holdem-showdown-dialog').getByRole('button', { name: '关闭', exact: true }).click();
+    }
+    for (let i = 0; i < 3; i++) {
+      await pages[i].getByRole('button', { name: '准备', exact: true }).click();
+      if (i < 2) expect((await sync()).matchId).toBe(ended.matchId);
+    }
+    await expect.poll(async () => (await sync()).matchId).not.toBe(ended.matchId);
+    expect((await sync()).status).toBe('playing');
+    expect(holdemView(await sync()).alive).toHaveLength(3);
+    await expect(a.getByRole('button', { name: '确认全下', exact: true })).toHaveCount(0);
     expect(errors).toEqual([]);
   } finally {
     sockets.forEach((s) => s.disconnect());
@@ -195,6 +231,12 @@ test('Holdem: six seats with fair hard AI, responsive layouts and chip sound eff
       expect(box!.y).toBeGreaterThanOrEqual(0);
       expect(box!.y + box!.height).toBeLessThan(viewport.height);
     }
+    const clock = page.getByTestId('seat-countdown');
+    await expect(clock).toHaveCount(1);
+    const clockBox = await clock.boundingBox();
+    expect(clockBox!.x).toBeGreaterThanOrEqual(0);
+    expect(clockBox!.x + clockBox!.width).toBeLessThanOrEqual(viewport.width + 1);
+    expect(clockBox!.y + clockBox!.height).toBeLessThan(viewport.height);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await page.screenshot({ path: `.artifacts/holdem-six-${viewport.width}.png` });
   }

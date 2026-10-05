@@ -120,6 +120,8 @@ test('three-person Doudizhu: bidding, selection, pass reset, private reconnect, 
     await expect(pages[landlord].locator('.ddz-hand-slot')).toHaveCount(20);
     await expect(a.locator('.ddz-kitty .ddz-poker-face')).toHaveCount(3);
     await expect(a.locator('.ddz-seat.active')).toHaveAttribute('data-player-id', ids[landlord]);
+    await expect(a.getByTestId('seat-countdown')).toHaveAttribute('data-player-id', ids[landlord]);
+    await expect(a.locator('.ddz-player [data-testid="seat-countdown"]')).toHaveCount(0);
     await expect(
       request((ack) =>
         sockets[(landlord + 1) % 3].emit(

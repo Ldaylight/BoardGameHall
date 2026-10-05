@@ -11,6 +11,10 @@ const act = (s: HoldemState, a: HoldemAction) => applyHoldemAction(s, actor(s), 
 const passive = (s: HoldemState) =>
   act(s, { type: s.bets[actor(s)] < s.currentBet ? 'poker:call' : 'poker:check' });
 const chips = (s: HoldemState) => Object.values(s.stacks).reduce((a, b) => a + b, 0) + s.pot;
+function readyAll(s: HoldemState) {
+  for (const id of [...s.alive]) s = applyHoldemAction(s, id, { type: 'poker:ready', ready: true });
+  return s;
+}
 function river(
   stacks: number[],
   board = [c(2), c(3, 'hearts'), c(7, 'clubs'), c(9, 'diamonds'), c(11, 'hearts')],
@@ -95,14 +99,14 @@ describe('Texas authority, betting and settlement', () => {
     s.stacks.b = 0;
     s.phase = 'showdown';
     s.turnDeadline = Date.now() - 1;
-    s = applyHoldemAction(s, 'a', { type: 'poker:next' });
+    s = readyAll(s);
     expect(s.bigBlindId).toBe('d');
     expect(s.smallBlindId).toBe('c');
     s.alive = ['a', 'd'];
     s.stacks.c = 0;
     s.phase = 'showdown';
     s.turnDeadline = Date.now() - 1;
-    s = applyHoldemAction(s, 'a', { type: 'poker:next' });
+    s = readyAll(s);
     expect(s.bigBlindId).toBe('a');
     expect(s.smallBlindId).toBe('d');
     expect(s.players[s.dealerIndex]).toBe('d');
@@ -156,7 +160,7 @@ describe('Texas authority, betting and settlement', () => {
     expect(actor(s)).toBe('b');
     while (s.phase === 'betting') s = passive(s);
     s.turnDeadline = Date.now() - 1;
-    s = act(s, { type: 'poker:next' });
+    s = readyAll(s);
     expect(s.smallBlindId).toBe('b');
     expect(s.bigBlindId).toBe('a');
     expect(actor(s)).toBe('b');
@@ -262,7 +266,7 @@ describe('Texas authority, betting and settlement', () => {
     s.dealerIndex = 2;
     s.stacks = { a: 100, b: 100, c: 5 };
     s.alive = ['a', 'b', 'c'];
-    s = act(s, { type: 'poker:next' });
+    s = readyAll(s);
     expect(s.bigBlindId).toBe('c');
     expect(s.bets.c).toBe(5);
     expect(s.currentBet).toBe(20);

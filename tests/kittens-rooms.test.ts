@@ -21,6 +21,53 @@ const setup = () =>
     to: () => ({ emit: vi.fn() }),
   } as unknown as GameServer);
 describe('Kittens authoritative shared rooms', () => {
+  it('randomizes cardless acknowledgements under 3 seconds, keeps jobs through sync and hides others confirmations', async () => {
+    const rooms = setup(),
+      a = user(),
+      b = user(),
+      c = user(),
+      r = await rooms.create(a, options);
+    await rooms.join(b, r.code);
+    await rooms.join(c, r.code);
+    for (const p of [a, b, c]) await rooms.ready(p, r.id, true);
+    await rooms.start(a, r.id);
+    let stored = (await rooms.store.get(r.id))!;
+    if (!stored.game || !isKittens(stored.game)) throw Error('wrong game');
+    stored.game.hands[a.id] = [{ id: 'favor', kind: 'favor' }];
+    stored.game.hands[b.id] = [{ id: 'cat', kind: 'taco' }];
+    stored.game.hands[c.id] = [{ id: 'nope', kind: 'nope' }];
+    await rooms.store.put(stored);
+    await rooms.action(a, r.id, { type: 'ek:play', cardIds: ['favor'], targetId: b.id }, stored.revision);
+    stored = (await rooms.store.get(r.id))!;
+    const job = stored.kittenResponse!;
+    expect(job.due[b.id] - Date.now()).toBeGreaterThan(700);
+    expect(job.due[b.id] - Date.now()).toBeLessThanOrEqual(2850);
+    expect(job.due[c.id]).toBeUndefined();
+    await rooms.sync(b, r.id);
+    await rooms.join(b, r.code);
+    expect((await rooms.store.get(r.id))!.kittenResponse).toEqual(job);
+    expect(kittensView(await rooms.sync(b, r.id)).pending!.allowed).toEqual([]);
+    expect(JSON.stringify(await rooms.sync(c, r.id))).not.toContain('kittenResponse');
+    stored.kittenResponse!.due[b.id] = Date.now() - 1;
+    stored.nextActionAt = Date.now() - 1;
+    await rooms.store.put(stored);
+    await rooms.tick();
+    expect(kittensView(await rooms.sync(b, r.id)).pending!.allowed).toEqual([b.id]);
+    expect(kittensView(await rooms.sync(c, r.id)).pending!.allowed).toEqual([]);
+    expect(kittensView(await rooms.sync(a, r.id)).pending!.allowed).toEqual([a.id]);
+    expect(kittensView(await rooms.sync(a, r.id)).phase).toBe('reaction');
+    // A counter-Nope invalidates all previous confirmations and starts fresh secret timers.
+    await rooms.action(
+      c,
+      r.id,
+      { type: 'ek:nope', cardId: 'nope', pendingId: kittensView(await rooms.sync(c, r.id)).pending!.id },
+      (await rooms.sync(c, r.id)).revision,
+    );
+    const counter = (await rooms.store.get(r.id))!;
+    expect(counter.kittenResponse!.key).not.toBe(job.key);
+    expect(counter.kittenResponse!.due[b.id]).toBeGreaterThan(Date.now());
+    expect(counter.kittenResponse!.due[a.id]).toBeGreaterThan(Date.now());
+  });
   it('sync and rejoin stop offline automation for the gift recipient, even outside their normal turn', async () => {
     const rooms = setup(),
       a = user(),
@@ -101,7 +148,7 @@ describe('Kittens authoritative shared rooms', () => {
       stored.revision,
     );
     stored = (await rooms.store.get(r.id))!;
-    expect(stored.nextActionAt! - Date.now()).toBeGreaterThanOrEqual(1950);
+    expect(stored.nextActionAt! - Date.now()).toBeGreaterThanOrEqual(700);
     expect(stored.nextActionAt! - Date.now()).toBeLessThanOrEqual(3000);
     if (!stored.game || !isKittens(stored.game)) throw Error('wrong game');
     stored.game.pending!.deadline = Date.now() - 1;

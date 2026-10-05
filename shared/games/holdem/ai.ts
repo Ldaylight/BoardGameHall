@@ -29,7 +29,7 @@ export function equity(v: HoldemView, id: string, samples = 64) {
 export function aiMove(v: HoldemView, id: string, difficulty: Difficulty): HoldemAction {
   const legal = holdemLegalActions(v, id);
   if (!legal.length) throw Error('没有合法德州动作');
-  if (v.phase === 'showdown') return legal[0];
+  if (v.phase !== 'betting') return legal[0];
   if (difficulty === 'easy') return legal[Math.floor(Math.random() * legal.length)];
   let strength: number;
   if (difficulty === 'hard') strength = equity(v, id);

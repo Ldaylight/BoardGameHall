@@ -69,7 +69,7 @@ describe('Holdem uses shared authoritative rooms', () => {
     await rooms.tick();
     expect((await rooms.store.get(r.id))!.revision).toBe(rev + 1);
   });
-  it('auto-deals after showdown even if a human reconnects or synchronizes', async () => {
+  it('waits for every human readiness and preserves it across reconnect instead of auto-dealing', async () => {
     const rooms = setup(),
       a = user(),
       b = user(),
@@ -80,15 +80,49 @@ describe('Holdem uses shared authoritative rooms', () => {
     await rooms.action(a, r.id, { type: 'poker:fold' }, (await rooms.sync(a, r.id)).revision);
     let stored = (await rooms.store.get(r.id))!;
     expect(holdemView(await rooms.sync(b, r.id)).phase).toBe('showdown');
-    expect((await rooms.store.get(r.id))!.nextActionAt).toBe(stored.game!.turnDeadline);
+    expect((await rooms.store.get(r.id))!.nextActionAt).toBeNull();
     if (!stored.game || !isHoldem(stored.game)) throw Error('wrong game');
     stored.game.turnDeadline = Date.now() - 1;
     stored.nextActionAt = stored.game.turnDeadline;
     await rooms.store.put(stored);
     await rooms.tick();
+    expect(holdemView(await rooms.sync(a, r.id)).handNumber).toBe(1);
+    await expect(rooms.action(a, r.id, { type: 'poker:next' }, stored.revision)).rejects.toThrow('准备');
+    await rooms.ready(a, r.id, true);
+    await rooms.presence(b.id, false);
+    await rooms.tick();
+    expect(holdemView(await rooms.sync(a, r.id)).readyPlayers).toEqual([a.id]);
+    await rooms.sync(b, r.id);
+    await rooms.ready(a, r.id, false);
+    expect(holdemView(await rooms.sync(a, r.id)).readyPlayers).toEqual([]);
+    await rooms.ready(a, r.id, true);
+    await rooms.ready(b, r.id, true);
     expect(holdemView(await rooms.sync(a, r.id)).handNumber).toBe(2);
+    expect(holdemView(await rooms.sync(a, r.id)).readyPlayers).toEqual([]);
   });
-  it('persists exactly once, awards final winner only, and supports rematch', async () => {
+  it('AI prepares automatically while humans and observers cannot bypass the readiness barrier', async () => {
+    const rooms = setup(),
+      a = user(),
+      b = user(),
+      observer = user(),
+      r = await rooms.create(a, options);
+    await rooms.join(b, r.code);
+    await rooms.ai(a, r.id, 'medium');
+    for (const p of [a, b]) await rooms.ready(p, r.id, true);
+    await rooms.start(a, r.id);
+    await rooms.join(observer, r.code, true);
+    const bot = (await rooms.sync(a, r.id)).players.find((p) => p.isAI)!;
+    await rooms.action(a, r.id, { type: 'poker:fold' }, (await rooms.sync(a, r.id)).revision);
+    await rooms.action(b, r.id, { type: 'poker:fold' }, (await rooms.sync(b, r.id)).revision);
+    expect(holdemView(await rooms.sync(a, r.id)).readyPlayers).toEqual([bot.id]);
+    await expect(rooms.ready(observer, r.id, true)).rejects.toThrow('观战');
+    await rooms.ready(a, r.id, true);
+    expect(holdemView(await rooms.sync(a, r.id)).handNumber).toBe(1);
+    await rooms.leave(b, r.id);
+    expect(holdemView(await rooms.sync(a, r.id)).handNumber).toBe(2);
+    expect(holdemView(await rooms.sync(a, r.id)).phase).toBe('betting');
+  });
+  it('persists exactly once, awards final winner only, and starts a fresh tournament only when all seated players prepare', async () => {
     const rooms = setup(),
       a = (await session('德州一')).user,
       b = (await session('德州二')).user,
@@ -124,7 +158,16 @@ describe('Holdem uses shared authoritative rooms', () => {
     expect(loser.matches[0]).toMatchObject({ gameName: '德州扑克', won: false, coinsDelta: 10 });
     await rooms.tick();
     expect((await profile(a.id)).user.coins).toBe(winner.user.coins);
-    await rooms.rematch(a, r.id);
-    expect((await rooms.sync(a, r.id)).game).toBeNull();
+    await rooms.ready(a, r.id, true);
+    expect((await rooms.sync(a, r.id)).matchId).toBe(ended.matchId);
+    await rooms.ready(b, r.id, true);
+    const restarted = await rooms.sync(a, r.id);
+    expect(restarted.status).toBe('playing');
+    expect(restarted.matchId).not.toBe(ended.matchId);
+    expect(
+      holdemView(restarted).stacks[a.id] + holdemView(restarted).stacks[b.id] + holdemView(restarted).pot,
+    ).toBe(2000);
+    expect(holdemView(restarted).alive).toHaveLength(2);
+    expect((await profile(a.id)).user.coins).toBe(winner.user.coins);
   });
 });

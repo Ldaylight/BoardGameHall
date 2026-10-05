@@ -1,4 +1,3 @@
-import { Clock3 } from 'lucide-react';
 import type { Player } from '../../../shared/types';
 import { Avatar } from './Layout';
 
@@ -62,7 +61,6 @@ export function PlayerSeat({
   player,
   active,
   blocked,
-  seconds,
   own = false,
 }: {
   player: Player;
@@ -103,15 +101,6 @@ export function PlayerSeat({
         </small>
       </div>
       {active && <span className="seat-turn-dot" />}
-      {active && (
-        <span
-          className={`seat-timer timer ${seconds <= 10 ? 'urgent' : ''}`}
-          aria-label={`${player.name} 剩余 ${seconds} 秒`}
-        >
-          <Clock3 size={12} />
-          {seconds}s
-        </span>
-      )}
     </div>
   );
 }
