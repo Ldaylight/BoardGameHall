@@ -3,8 +3,14 @@ import { playXiangqiSound } from './xiangqi-sounds';
 import type { PieceKind } from '../../../shared/games/xiangqi/types';
 import { getLocalTrack } from './audio-library';
 import { musicTracks, type AudioScene } from './audio-settings';
+import type { KittenKind } from '../../../shared/games/exploding-kittens/types';
 
 export type SoundEffect =
+  | `ek-${KittenKind}`
+  | 'ek-play'
+  | 'ek-draw'
+  | 'ek-insert'
+  | 'ek-give'
   | `x-${PieceKind}-${'move' | 'capture' | 'impact'}`
   | 'x-check'
   | 'click'
@@ -56,6 +62,119 @@ class AudioEngine {
   private hoverTime = -Infinity;
   private voiceTime = -Infinity;
   private ducked = false;
+  private kittenSamples = new Map<string, AudioBuffer>();
+  private kittenSamplesLoading = false;
+  async preloadKittens() {
+    if (!this.context || this.kittenSamplesLoading) return;
+    this.kittenSamplesLoading = true;
+    await Promise.all(
+      [
+        'card-fan-1',
+        'card-slide-1',
+        'card-place-1',
+        'card-shuffle',
+        'laserLarge_000',
+        'forceField_000',
+        'lowFrequency_explosion_000',
+      ].map(async (name) => {
+        try {
+          const response = await fetch(`/audio/kenney/${name}.ogg`);
+          if (!response.ok) return;
+          const buffer = await this.context!.decodeAudioData(await response.arrayBuffer());
+          this.kittenSamples.set(name, buffer);
+        } catch {
+          /* Synthesized effects remain available if loading fails. */
+        }
+      }),
+    );
+  }
+  private kittenSample(name: string, delay: number, amplitude = 0.45): boolean {
+    const buffer = this.kittenSamples.get(name),
+      ctx = this.context;
+    if (!buffer || !ctx || !this.effectsBus || this.sources.size > 48) return false;
+    const source = ctx.createBufferSource(),
+      gain = ctx.createGain();
+    source.buffer = buffer;
+    gain.gain.value = amplitude;
+    source.connect(gain).connect(this.effectsBus);
+    this.register(source, [gain], false);
+    source.start(ctx.currentTime + delay);
+    return true;
+  }
+  private kittenSound(effect: string, delay: number) {
+    void this.preloadKittens();
+    const sample = (name: string, fallback: () => void) => {
+      if (!this.kittenSample(name, delay)) fallback();
+    };
+    const meow = (midi: number, time = delay) => {
+      this.tone(midi, time, 0.2, 0.12, 'triangle', false, midi + 6);
+      this.tone(midi + 6, time + 0.18, 0.3, 0.1, 'triangle', false, midi - 4);
+    };
+    switch (effect) {
+      case 'ek-draw':
+      case 'ek-insert':
+        sample('card-slide-1', () => this.swish(delay, 0.18));
+        break;
+      case 'ek-play':
+        sample('card-place-1', () => this.swish(delay));
+        break;
+      case 'ek-give':
+        sample('card-fan-1', () => this.swish(delay));
+        this.tone(81, delay + 0.1, 0.17, 0.1);
+        break;
+      case 'ek-shuffle':
+        sample('card-shuffle', () => {
+          for (let i = 0; i < 5; i++) this.swish(delay + i * 0.11);
+        });
+        break;
+      case 'ek-explode':
+        sample('lowFrequency_explosion_000', () => this.impact(delay, 0.7, 1000, 0.4));
+        this.tone(40, delay, 0.45, 0.16, 'sawtooth', false, 22);
+        break;
+      case 'ek-defuse':
+        sample('forceField_000', () => this.swish(delay, 0.35));
+        [72, 79, 84].forEach((n, i) => this.tone(n, delay + i * 0.12, 0.25, 0.1));
+        break;
+      case 'ek-attack':
+        sample('laserLarge_000', () => this.swish(delay, 0.3));
+        this.impact(delay + 0.12, 0.3, 1200, 0.16);
+        break;
+      case 'ek-skip':
+        this.swish(delay);
+        this.tone(67, delay, 0.18, 0.1, 'sine', false, 89);
+        break;
+      case 'ek-future':
+        [72, 76, 79, 88].forEach((n, i) => this.tone(n, delay + i * 0.15, 0.35, 0.08));
+        break;
+      case 'ek-favor':
+        this.tone(76, delay, 0.18, 0.13, 'sine', false, 83);
+        this.tone(88, delay + 0.2, 0.22, 0.1);
+        break;
+      case 'ek-nope':
+        this.tone(53, delay, 0.18, 0.14, 'square', false, 45);
+        this.impact(delay, 0.16, 700, 0.12);
+        break;
+      case 'ek-taco':
+        meow(72);
+        this.swish(delay + 0.1);
+        break;
+      case 'ek-melon':
+        meow(76);
+        [80, 86].forEach((n, i) => this.tone(n, delay + 0.3 + i * 0.12, 0.08, 0.1));
+        break;
+      case 'ek-potato':
+        meow(64);
+        for (let i = 0; i < 3; i++) this.impact(delay + i * 0.12, 0.09, 380, 0.08);
+        break;
+      case 'ek-beard':
+        meow(58);
+        break;
+      case 'ek-rainbow':
+        meow(81);
+        [79, 83, 86, 91].forEach((n, i) => this.tone(n, delay + 0.12 + i * 0.07, 0.2, 0.065));
+        break;
+    }
+  }
 
   get unlocked() {
     return this.context?.state === 'running';
@@ -242,6 +361,10 @@ class AudioEngine {
   effect(effect: SoundEffect, delay = 0) {
     const p = useAudio.getState().preferences;
     if (!this.unlocked || p.muted || !p.effectsEnabled || p.effectsVolume === 0 || document.hidden) return;
+    if (effect.startsWith('ek-')) {
+      this.kittenSound(effect, delay);
+      return;
+    }
     if (effect.startsWith('x-')) {
       this.xiangqiSound(effect, delay);
       return;

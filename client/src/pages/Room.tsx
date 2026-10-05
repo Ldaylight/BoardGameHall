@@ -38,8 +38,17 @@ export function Room() {
   const isGomoku = room.gameId === 'gomoku';
   const isXiangqi = room.gameId === 'xiangqi';
   const isDoudizhu = room.gameId === 'doudizhu';
+  const isKittens = room.gameId === 'exploding-kittens';
   const minPlayers = isDoudizhu ? 3 : 2;
-  const gameName = isDoudizhu ? '斗地主' : isXiangqi ? '中国象棋' : isGomoku ? '五子棋' : 'UNO';
+  const gameName = isKittens
+    ? '炸弹猫'
+    : isDoudizhu
+      ? '斗地主'
+      : isXiangqi
+        ? '中国象棋'
+        : isGomoku
+          ? '五子棋'
+          : 'UNO';
   const rules = { ...defaultGomokuOptions, ...room.options.gomoku };
   async function execute(task: () => Promise<unknown>) {
     setBusy(true);
@@ -189,7 +198,13 @@ export function Room() {
                   <option value="medium">AI · 中等</option>
                   <option value="hard">
                     AI · 困难
-                    {isDoudizhu ? '（组合搜索）' : isGomoku || isXiangqi ? '（Alpha-Beta）' : '（中等策略）'}
+                    {isKittens
+                      ? '（风险启发式）'
+                      : isDoudizhu
+                        ? '（组合搜索）'
+                        : isGomoku || isXiangqi
+                          ? '（Alpha-Beta）'
+                          : '（中等策略）'}
                   </option>
                 </select>
               )}
@@ -247,13 +262,15 @@ export function Room() {
                     : !humansReady
                       ? '等待所有真人玩家准备。AI 已经迫不及待了。'
                       : '大家都准备好了，房主可以开始！'}{' '}
-              {isDoudizhu
-                ? '困难 AI 搜索自己的合法组合，农民会配合队友；不会读取对手手牌。'
-                : isXiangqi
-                  ? '困难 AI 使用迭代加深 Alpha-Beta 搜索；残局可准备后重新开始。'
-                  : isGomoku
-                    ? '困难 AI 使用 4–6 层 Alpha-Beta 搜索。'
-                    : '困难 AI 当前使用中等策略。'}
+              {isKittens
+                ? 'AI 只读取自己的手牌、公开信息和通过预知获得的牌序；困难档使用风险启发式。'
+                : isDoudizhu
+                  ? '困难 AI 搜索自己的合法组合，农民会配合队友；不会读取对手手牌。'
+                  : isXiangqi
+                    ? '困难 AI 使用迭代加深 Alpha-Beta 搜索；残局可准备后重新开始。'
+                    : isGomoku
+                      ? '困难 AI 使用 4–6 层 Alpha-Beta 搜索。'
+                      : '困难 AI 当前使用中等策略。'}
             </p>
           </section>
           <section className="panel rules-panel">
@@ -261,7 +278,19 @@ export function Room() {
               <Layers3 size={18} />
               {gameName} · 本大厅规则
             </h2>
-            {isDoudizhu ? (
+            {isKittens ? (
+              <>
+                <div className="rule-tags">
+                  <span>经典版 · 2–5 人</span>
+                  <span>每人 8 张含拆弹</span>
+                  <span>6 秒否决窗口</span>
+                  <span>最后幸存者获胜</span>
+                </div>
+                <p>
+                  可连续出牌，摸一张结束一次回合。攻击可叠加剩余回合，跳过只免除一次。摸到炸弹必须拆弹并秘密放回，否则淘汰。否决可以取消普通效果或同名组合，再否决可恢复；拆弹与摸牌不可否决。两张同名牌随机偷一张，三张同名牌索取指定类型。索取由目标决定赠牌，预知牌序只对使用者可见。经典版不含扩展卡或五张回收组合。
+                </p>
+              </>
+            ) : isDoudizhu ? (
               <>
                 <div className="rule-tags">
                   <span>3 人 · 54 张牌</span>

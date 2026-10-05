@@ -25,7 +25,7 @@ test('real match activates UNO only with two cards, saves declaration on refresh
       b = pages[1];
     await a.goto('/lobby');
     await expect(a.getByText('已连接 · 实时同步')).toBeVisible();
-    await a.locator('.heading-buttons').getByRole('button', { name: '创建房间' }).click();
+    await a.locator('.nav-room-actions').getByRole('button', { name: '创建房间' }).click();
     await a.getByRole('dialog').getByLabel('座位数量').selectOption('2');
     await a.getByRole('dialog').getByRole('button', { name: '创建房间', exact: true }).click();
     await expect(a.locator('.room-code')).toBeVisible();
@@ -33,7 +33,7 @@ test('real match activates UNO only with two cards, saves declaration on refresh
     const roomId = a.url().split('/').at(-1)!;
     await b.goto('/lobby');
     await expect(b.getByText('已连接 · 实时同步')).toBeVisible();
-    await b.locator('.heading-buttons').getByRole('button', { name: '房间码加入' }).click();
+    await b.locator('.nav-room-actions').getByRole('button', { name: '房间码加入' }).click();
     await b.locator('.room-code-input').fill(code);
     await b.getByRole('button', { name: '加入房间', exact: true }).click();
     await expect(b).toHaveURL(/\/room\//);

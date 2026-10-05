@@ -6,6 +6,7 @@ import {
   ChevronDown,
   CircleHelp,
   Coins,
+  DoorOpen,
   Crown,
   Gamepad2,
   LayoutGrid,
@@ -26,7 +27,7 @@ import { useApp } from '@/stores/app';
 import { api, leaveRoom, perform } from '@/lib/api';
 import type { ProfileData } from '../../../shared/types';
 import { games } from '../../../shared/catalog';
-import { JoinRoomDialog } from './RoomDialogs';
+import { CreateRoomDialog, JoinRoomDialog } from './RoomDialogs';
 import { AudioButton } from './AudioController';
 import { PerformanceBar } from './PerformanceBar';
 export function Brand() {
@@ -57,6 +58,8 @@ export function Layout() {
   const [help, setHelp] = useState(false);
   const [topSearch, setTopSearch] = useState('');
   const [leaving, setLeaving] = useState(false);
+  const [createRoomOpen, setCreateRoomOpen] = useState(false);
+  const [joinRoomOpen, setJoinRoomOpen] = useState(false);
   const activeRoom = useApp(
     useShallow((s) => {
       const r = s.activeRoomId ? s.roomsById[s.activeRoomId] : null;
@@ -123,6 +126,16 @@ export function Layout() {
           />
           <kbd>↵</kbd>
         </form>
+        <div className="nav-room-actions">
+          <Button variant="outline" size="sm" onClick={() => setJoinRoomOpen(true)}>
+            <DoorOpen size={15} />
+            房间码加入
+          </Button>
+          <Button size="sm" onClick={() => setCreateRoomOpen(true)}>
+            <Plus size={15} />
+            创建房间
+          </Button>
+        </div>
         <div className="top-actions">
           <PerformanceBar game={location.pathname.startsWith('/game/')} />
           <AudioButton />
@@ -148,6 +161,8 @@ export function Layout() {
           </Link>
         </div>
       </header>
+      <CreateRoomDialog open={createRoomOpen} onOpenChange={setCreateRoomOpen} />
+      <JoinRoomDialog open={joinRoomOpen} onOpenChange={setJoinRoomOpen} />
       {activeRoom && !location.pathname.endsWith(`/${activeRoom.id}`) && (
         <div className="room-return-bar">
           <div className="room-return-control">
@@ -382,7 +397,7 @@ function SocialDrawer({ open, onOpenChange }: { open: boolean; onOpenChange: (v:
           </div>
           <div className="announcement">
             <span>PLAYROOM 公告</span>
-            <p>UNO、五子棋、中国象棋与斗地主已开放。邀请朋友，或添加 AI 一起玩。</p>
+            <p>UNO、五子棋、中国象棋、斗地主与炸弹猫已开放。邀请朋友，或添加 AI 一起玩。</p>
             <small>好游戏，好朋友，好时光。</small>
           </div>
         </DialogContent>

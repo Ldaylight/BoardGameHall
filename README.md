@@ -2,15 +2,15 @@
 
 一个可运行的多人 Web 桌游大厅。React 18 / TypeScript / Vite / Tailwind CSS / shadcn 风格本地 Radix UI 组件 / Zustand / React Router / Framer Motion；Express / Socket.IO；MySQL 8.0 / Prisma 6；可选 Redis 房间状态与 Socket.IO adapter。
 
-**UNO、五子棋、中国象棋和斗地主现已开放。** 四款游戏复用大厅、用户、房间、聊天、观战、重连与结算系统；中国象棋包含标准对局和经典杀法教学残局，斗地主支持三人叫分和地主/农民阵营结算。德州扑克、炸弹猫、麻将、台球为预留入口，仅展示独立封面、人数和预计时长；标记“敬请期待”，不开放创建房间或实际对局。默认体验模式也使用真正的 Socket.IO 服务端权威房间；只有持久化层在内存中。游戏目录使用静态 mock 数据先跑通 UI。
+**UNO、五子棋、中国象棋、斗地主和炸弹猫现已开放。** 五款游戏复用大厅、用户、房间、聊天、观战、重连与结算系统；中国象棋包含标准对局和经典杀法教学残局，斗地主支持三人叫分和阵营结算，炸弹猫支持 2–5 人经典版及公平 AI。德州扑克、麻将、台球为预留入口，标记“敬请期待”。默认体验模式也使用真正的 Socket.IO 服务端权威房间；只有持久化层在内存中。
 
-UNO 与斗地主手牌按照牌桌中线居中，自己的名片保留在左侧。斗地主悬停仅描边高亮，不抬升卡牌、不改变层级；点击后才抬起表示选中。手机横竖屏保留手牌溢出滚动。麻将预留四人规则，具体地区玩法待确定；台球预留两人玩法，并新增“休闲运动”分类。新预留项目尚无 AI，因此不出现在“支持人机”筛选中。
+大厅已移除问候区和 UNO 宣传横幅，进入后直接浏览游戏。导航栏提供「房间码加入」和「创建房间」，手机第二行也可直接使用。UNO 与斗地主手牌按牌桌中线居中；斗地主悬停只描边高亮，点击后才抬起。按住鼠标左键横向拖过手牌可一次选中连续多张；从已选中的牌开始拖动可取消该范围，往回拖动恢复范围外原状态，松开即完成。键盘空格选牌、手机点选和横向滚动继续可用。麻将和台球仍为预留入口，不出现在人机筛选中。
 
 ## 电脑重启后，如何重新打开项目
 
 本机已经安装依赖、生成 Prisma 客户端、迁移并初始化数据库，包括五子棋平局迁移。普通重启后无需重复安装、迁移或种子初始化，保留已有 `.env`。其他已部署环境更新本次代码后，需要先执行一次 `npm run db:generate` 和 `npm run db:migrate`。
 
-本次斗地主、性能条、UNO 音效及三个预留入口更新无需新增依赖或数据库迁移。已有部署更新代码后运行一次 `npm run db:seed`，将斗地主目录标记为开放并补齐八款游戏元数据；生产部署再执行 `npm run build`。本机已执行种子更新。
+本次炸弹猫、导航和拖选更新无需新增依赖或数据库迁移。已有部署更新代码后运行一次 `npm run db:seed`，将炸弹猫标记为开放并补齐八款游戏元数据；生产部署再执行 `npm run build`。本机已执行种子更新。
 
 在 PowerShell 中运行：
 
@@ -68,6 +68,8 @@ npm run dev
 牌局声音根据服务端公开日志的类型事件触发，覆盖真人和 AI 的动作；无隐藏手牌信息。客户端按唯一日志 ID 去重，聊天更新不重复出牌声音，断线重连和历史快照不补播旧动作。日志保留最近 60 条并使用独立单调序号，避免同一回合多次动作产生重复 ID。此更新不需要安装新依赖或进行数据库迁移。
 
 UNO 反转使用往返扫频和转向风声；万能变色使用四音阶与闪光音；+2 / +4 出牌成功时加入本地小丑“哈哈”语音和短回声。选牌、声明 UNO、摸罚牌不会触发小丑笑声。音效均经过同一音量/静音总线，静音会取消已排队的音频。音源说明见 `client/public/audio/README.md`，可选再生成脚本仅用于 Windows 开发，运行网站不需要 Windows 语音引擎。
+
+炸弹猫新增 13 种卡牌声音与动画：炸弹爆炸、拆弹护盾、攻击冲击、跳过掠影、洗牌旋转、预知扫描、索取礼物、否决摇摆和五种猫咪组合效果。摸牌、放回和赠牌也有对应音效。实际下载并使用 [Kenney Casino Audio](https://kenney.nl/assets/casino-audio) 与 [Sci-Fi Sounds](https://kenney.nl/assets/sci-fi-sounds) 的免费 CC0 OGG 素材；缺少素材时回退 Web Audio 合成，不影响游戏。来源、场景映射和原始许可见 `client/public/audio/kenney/README.md`。之后增加素材时先确认具体文件许可，再保存音源、来源及许可文件，并接入现有音量/静音总线和服务端确认后的事件；不会依赖在线第三方播放地址。
 
 ### FPS 与网络延迟
 
@@ -168,13 +170,27 @@ UNO 对局去除大厅页眉、页脚、面包屑和营销标题，牌桌占满�
 
 实现标准 108 张牌、7 张起手、颜色/数值匹配、跳过、反转、+2、万能变色、+4（有当前色时不允许使用）、摸牌与结束回合、牌堆耗尽重洗、清空手牌获胜。已核对 [Mattel 官方 UNO 规则](https://shop.mattel.com/pages/games-uno-braille-rules) 与 [官方移动版说明](https://pre-letsplayuno.mattel163.com/news/guide/20181213/30092_732580.html)：打出倒数第二张前喊 UNO，漏喊被其他玩家抓到罚摸 **2 张**。本大厅沿用该罚牌数量，但**自动判罚漏喊**，不实现抓漏喊的时限窗口；不叠加罚牌，不实现 +4 挑战或抢喊 UNO。两人反转相当于跳过。摸到可出的牌时只可打出刚摸到的一张或 pass。回合 45 秒，超时中等策略代打；断线后临时代打，重连恢复自己手牌；主动离开后保留该手牌由 AI 完成本局，并让出房主身份。
 
-`GameDefinition<State, Action, View, Options>`：`id/name/minPlayers/maxPlayers/createState/applyAction/getLegalActions/aiMove/getView`；第四个可选泛型允许每款游戏定义自己的规则配置。四款开放游戏独立实现，服务端统一分发动作，客户端按游戏加载桌面。
+`GameDefinition<State, Action, View, Options>`：`id/name/minPlayers/maxPlayers/createState/applyAction/getLegalActions/aiMove/getView`；第四个可选泛型允许每款游戏定义自己的规则配置。五款开放游戏独立实现，服务端统一分发动作，客户端按游戏加载桌面。
 
 UNO AI 每次动作由服务端设置 2000–3000ms 思考时间，包括 AI 摸牌后继续出牌，以及断线玩家的 AI 接管；调度器在时间到达后执行。简单随机合法动作；中等根据手牌颜色数量、效果牌和下一位公共手牌数量评分；UNO 困难档当前回退中等策略。AI 函数只接受 `UnoView`，没有牌堆顺序和对手手牌。观战者手牌数组为空。
 
 卡牌 2.5:3.5，扇形排列，悬停上浮 8px + rotateX/rotateY，选中放大 1.15 倍；普通灰边、稀有蓝边、史诗紫色粒子、传说金色呼吸光；发牌翻转与出牌拖尾。封面为本地 CSS/SVG 图形，无外部图片或字体依赖。支持系统减少动画偏好和设置页面动画开关。
 
 ## 6. 开发顺序与目录
+
+### 炸弹猫模块
+
+大厅点击「炸弹猫」→ 选择 2–5 人座位 → 邀请朋友或添加 AI → 真人准备 → 房主开始。采用[官方当前经典版规则](https://www.explodingkittens.com/pages/rules-kittens/thanks)：56 张基础牌，每人 7 张普通牌和 1 张拆弹；牌堆放玩家数减一张炸弹，多余拆弹最多放回两张。最后一位未被炸弹淘汰的玩家获胜，不以清空手牌获胜。
+
+轮到自己时可连续出牌，摸一张结束一次应承担的回合。攻击把尚未完成的攻击回合转移给下一家并加两轮；普通回合攻击直接让下一家承担两轮。跳过只免除一次。摸到炸弹后使用拆弹，然后秘密选择放回位置：0 是下一张，牌堆张数是底部；仍有攻击回合时继续行动。没有拆弹则淘汰，并清除剩余攻击债务。淘汰玩家继续观战、聊天，结束弹窗也会显示其结局。
+
+索取由目标选择赠牌；预知未来只向使用者展示顶部三张，可刷新恢复，实际摸牌、洗牌或放回炸弹后失效。同名两张（包括普通效果牌）随机偷取目标的一张牌；同名三张索取指定类型，没有则无所得。五种普通猫牌不能单张主动使用。当前经典版不含扩展卡及旧版五张不同牌回收规则。
+
+普通效果与组合进入 6 秒否决响应窗口，这是在线版本的操作约定：任何存活玩家可否决；再次否决恢复效果。全员点击「不否决」可提前结算，窗口到期由服务端结算。不能否决摸牌、炸弹或拆弹。所有动作均使用既有 `game:action` 和 revision 校验，拒绝越权、抢回合、外国牌、重复 ID、过期否决和无效放回位置。普通回合 45 秒，预知/赠牌/拆弹/放回阶段 20 秒，超时或离线由公平 AI 临时代打。
+
+三档 AI 延迟 500–1500ms：简单随机合法动作，中等评估风险、保留拆弹/否决与组合价值，困难采用更保守的风险启发式。只读取自己的手牌、公开数量和通过预知合法获得的牌序；困难档没有隐藏牌搜索。本人、对手和观战视图均由服务端独立投影；秘密手牌、赠牌内容和放回位置不进入公开事件。MySQL 只在结束时保存 2–5 位玩家的 MatchPlayer（包含淘汰者）、公开结果与事件、奖励和按游戏排行榜；落牌仍保存在原内存 / Redis 系统。
+
+桌面、手机横竖屏有独立牌桌、居中手牌、头像计时、摸牌与弃牌堆、响应面板、赠牌/预知/放回交互，聊天与动态默认折叠。卡面使用本项目原创 SVG 猫咪与图标，不使用官方卡面图片；动画和声音由被确认的公开事件触发，效果被否决时不播放原效果声音。减少动画、静音和音量设置复用已有系统。
 
 ### 斗地主模块
 
@@ -245,13 +261,17 @@ AI 使用公开 `GomokuView`：简单从所有合法空位随机选点；中等�
 client/
   src/
     components/         # Layout, GameArt, PlayingCard, Chat, RoomDialogs, ui/*
-    pages/              # Lobby, Room, GameTable(分发), UnoTable, GomokuTable, XiangqiTable, DoudizhuTable, XiangqiEndgames, Profile, Settings
+    pages/              # Lobby, Room, GameTable(分发), UnoTable, GomokuTable, XiangqiTable, DoudizhuTable, KittensTable, XiangqiEndgames, Profile, Settings
+    components/KittenCard.tsx # 13 种原创炸弹猫卡面与牌背
+    styles/kittens.css  # 炸弹猫响应式牌桌及按卡种区分的动画
+    lib/useHandSweep.ts # 斗地主鼠标连续拖选，兼容键盘与触屏
     styles/doudizhu.css  # 斗地主牌桌、重叠手牌、移动端和组合动效
     components/PerformanceBar.tsx # 独立 FPS / P95 / RTT 采样显示
     stores/app.ts       # Zustand 用户、连接、房间和消息
     lib/                # api, useRoom, utils
     styles.css          # 视觉系统、卡牌动效、响应式
   public/favicon.svg
+  public/audio/kenney/  # CC0 牌声/爆炸/护盾素材与来源许可
 server/src/
   config.ts
   index.ts              # Express、Socket.IO、静态构建、调度器
@@ -287,6 +307,11 @@ shared/
       cards.ts          # 54 张牌、洗牌、排序和分组
       rules.ts          # 14 种牌型、大小比较与合法组合枚举
       ai.ts             # 随机 / 搭档启发式 / 剩余手牌组合搜索
+    exploding-kittens/
+      index.ts          # 经典规则、否决窗口、拆弹放回、私有视图
+      types.ts          # 13 种卡牌、动作、阶段与公开事件
+      cards.ts          # 56 张牌及洗牌
+      ai.ts             # 随机 / 公平风险启发式
     holdem/index.ts
 prisma/
   schema.prisma
@@ -302,8 +327,11 @@ tests/
   xiangqi-rooms.test.ts
   doudizhu.test.ts
   doudizhu-rooms.test.ts
+  kittens.test.ts
+  kittens-rooms.test.ts
   performance.test.ts
   e2e/doudizhu.spec.ts
+  e2e/kittens.spec.ts
   e2e/xiangqi.spec.ts
   e2e/lobby.spec.ts
 ```

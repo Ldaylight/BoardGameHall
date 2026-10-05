@@ -5,8 +5,9 @@ import { io, type Socket } from 'socket.io-client';
 import { PrismaClient } from '@prisma/client';
 import type { ClientEvents, Result, RoomView, ServerEvents, Session, ProfileData } from '../shared/types.js';
 import { uno } from '../shared/games/uno/index.js';
-import { unoView, xiangqiView, doudizhuView } from '../shared/games/views.js';
+import { unoView, xiangqiView, doudizhuView, kittensView } from '../shared/games/views.js';
 import { doudizhu } from '../shared/games/doudizhu/index.js';
+import { kittens } from '../shared/games/exploding-kittens/index.js';
 const port = 3099;
 const base = `http://localhost:${port}`;
 const server = spawn(process.execPath, ['--import', 'tsx', 'server/src/index.ts'], {
@@ -519,6 +520,98 @@ try {
   await request((ack) => sa.emit('room:rematch', { roomId: dr.id }, ack));
   console.log(
     `PASS: Doudizhu farmer-team MySQL rematch (${farmSteps} actions), both farmers won/rewarded/ranked, cumulative exactly-once records.`,
+  );
+  const beforeKittens = await Promise.all(
+    ddzUsers.map((u) => api<ProfileData>('/profile', 'GET', undefined, u.token)),
+  );
+  for (const s of ddzSockets) await request((ack) => s.emit('room:leave', { roomId: dr.id }, ack));
+  const kr = await request<RoomView>((ack) =>
+    sa.emit(
+      'room:create',
+      {
+        gameId: 'exploding-kittens',
+        name: 'MySQL 炸弹猫验收',
+        maxPlayers: 3,
+        allowAI: true,
+        allowSpectators: true,
+        difficulty: 'medium',
+      },
+      ack,
+    ),
+  );
+  roomIds.push(kr.id);
+  await request((ack) => sb.emit('room:join', { code: kr.code }, ack));
+  await request((ack) => ss.emit('room:join', { code: kr.code }, ack));
+  for (const s of ddzSockets)
+    await request((ack) => s.emit('room:ready', { roomId: kr.id, ready: true }, ack));
+  await request((ack) => sa.emit('room:start', { roomId: kr.id }, ack));
+  const syncK = (i = 0) =>
+    request<RoomView>((ack) => ddzSockets[i].emit('room:sync', { roomId: kr.id }, ack));
+  const beforeHand = kittensView(await syncK()).hand;
+  sa.disconnect();
+  sa = await connect(a);
+  ddzSockets[0] = sa;
+  assert.deepEqual(kittensView(await syncK()).hand, beforeHand);
+  await request((ack) => sa.emit('room:chat', { roomId: kr.id, text: '秘密拆弹，喵！🐈' }, ack));
+  let kSteps = 0;
+  while (kSteps++ < 600) {
+    const r = await syncK(),
+      g = kittensView(r);
+    if (g.phase === 'finished') break;
+    assert.equal('hands' in g || 'deck' in g || 'eliminatedHands' in g, false);
+    assert.equal(await db.match.count({ where: { roomId: kr.id } }), 0);
+    const actor = ddzUsers.findIndex((u) =>
+      g.phase === 'reaction'
+        ? g.alive.includes(u.user.id) && !g.pending!.allowed.includes(u.user.id)
+        : u.user.id === g.actorId,
+    );
+    const own = kittensView(await syncK(actor));
+    const action =
+      g.phase === 'reaction'
+        ? { type: 'ek:allow' as const, pendingId: g.pending!.id }
+        : kittens.aiMove(own, ddzUsers[actor].user.id, 'medium');
+    await request((ack) =>
+      ddzSockets[actor].emit('game:action', { roomId: kr.id, revision: r.revision, action }, ack),
+    );
+  }
+  const kEnded = await syncK(),
+    kg = kittensView(kEnded);
+  assert.equal(kg.phase, 'finished');
+  assert.equal(kEnded.resultSaved, true);
+  const kRecord = await db.match.findUniqueOrThrow({
+    where: { id: kEnded.matchId! },
+    include: { players: true },
+  });
+  assert.equal(kRecord.gameId, 'exploding-kittens');
+  assert.equal(kRecord.winnerId, kg.winnerId);
+  assert.equal(kRecord.players.length, 3);
+  assert.equal(kRecord.players.filter((p) => p.won).length, 1);
+  const kReplay = kRecord.publicResult as Record<string, unknown>;
+  for (const forbidden of ['hands', 'deck', 'eliminatedHands', 'future', 'bomb', 'index'])
+    assert.equal(forbidden in kReplay, false);
+  for (let i = 0; i < ddzUsers.length; i++) {
+    const uid = ddzUsers[i].user.id,
+      won = kg.winnerId === uid;
+    const p = kRecord.players.find((p) => p.playerId === uid)!;
+    assert.equal(p.won, won);
+    assert.equal(p.coinsDelta, won ? 100 : 10);
+    const profile = await api<ProfileData>('/profile', 'GET', undefined, ddzUsers[i].token);
+    assert.equal(profile.user.coins, beforeKittens[i].user.coins + (won ? 100 : 10));
+    assert.equal(profile.matches.find((m) => m.id === kEnded.matchId)?.gameName, '炸弹猫');
+    const ranking = await db.ranking.findUniqueOrThrow({
+      where: { userId_gameId: { userId: uid, gameId: 'exploding-kittens' } },
+    });
+    assert.equal(ranking.played, 1);
+    assert.equal(ranking.wins, won ? 1 : 0);
+  }
+  await syncK();
+  await syncK();
+  assert.equal(await db.match.count({ where: { roomId: kr.id } }), 1);
+  assert.equal(await db.chatMessage.count({ where: { roomId: kr.id } }), 1);
+  await request((ack) => sa.emit('room:rematch', { roomId: kr.id }, ack));
+  assert.equal((await syncK()).game, null);
+  console.log(
+    `PASS: Kittens MySQL 3-human game (${kSteps} actions), private reconnect, Unicode chat, public-only replay, eliminated-player records, exactly-once rewards/ranking and rematch.`,
   );
   console.log(
     `PASS: Doudizhu 3-human MySQL game (${dSteps} actions), bidding/private hand/reconnect, team ${dg.winningTeam}, public replay/scores, all 3 MatchPlayers, exactly-once rankings and rewards, rematch.`,

@@ -2,10 +2,32 @@ import { z } from 'zod';
 import type { Ack } from '../../../shared/types.js';
 import { authenticate } from '../services/database.js';
 import { RoomService, type GameServer } from '../services/rooms.js';
+import { kittenKinds } from '../../../shared/games/exploding-kittens/types.js';
 const difficulty = z.enum(['easy', 'medium', 'hard']);
 const id = z.string().uuid();
 const room = z.object({ roomId: id });
 const action = z.union([
+  z
+    .object({
+      type: z.literal('ek:play'),
+      cardIds: z.array(z.string().min(1).max(30)).min(1).max(3),
+      targetId: z.string().min(1).max(80).optional(),
+      requestKind: z.enum(kittenKinds).optional(),
+    })
+    .strict(),
+  z.object({ type: z.literal('ek:draw') }).strict(),
+  z
+    .object({
+      type: z.literal('ek:nope'),
+      cardId: z.string().min(1).max(30),
+      pendingId: z.string().min(1).max(80),
+    })
+    .strict(),
+  z.object({ type: z.literal('ek:allow'), pendingId: z.string().min(1).max(80) }).strict(),
+  z.object({ type: z.literal('ek:give'), cardId: z.string().min(1).max(30) }).strict(),
+  z.object({ type: z.literal('ek:defuse'), cardId: z.string().min(1).max(30) }).strict(),
+  z.object({ type: z.literal('ek:insert'), index: z.number().int().min(0).max(56) }).strict(),
+  z.object({ type: z.literal('ek:continue') }).strict(),
   z
     .object({
       type: z.literal('bid'),

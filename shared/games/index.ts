@@ -2,9 +2,11 @@ import { uno } from './uno/index.js';
 import { gomoku } from './gomoku/index.js';
 import { xiangqi } from './xiangqi/index.js';
 import { doudizhu } from './doudizhu/index.js';
+import { kittens } from './exploding-kittens/index.js';
 import type { GameAction, GameState, RoomOptions } from '../types.js';
-export const playableGames = { uno, gomoku, xiangqi, doudizhu };
+export const playableGames = { uno, gomoku, xiangqi, doudizhu, 'exploding-kittens': kittens };
 export function createGame(options: RoomOptions, players: string[]): GameState {
+  if (options.gameId === 'exploding-kittens') return kittens.createState(players);
   if (options.gameId === 'doudizhu') return doudizhu.createState(players);
   if (options.gameId === 'xiangqi') return xiangqi.createState(players, options.xiangqi);
   return options.gameId === 'gomoku' ? gomoku.createState(players, options.gomoku) : uno.createState(players);
@@ -16,9 +18,12 @@ export const isXiangqi = (state: GameState): state is import('./xiangqi/types.js
 export const gameFinished = (state: GameState) => !!state.winnerId || ('draw' in state && state.draw);
 export const isDoudizhu = (state: GameState): state is import('./doudizhu/types.js').DoudizhuState =>
   'kind' in state && state.kind === 'doudizhu';
+export const isKittens = (state: GameState): state is import('./exploding-kittens/types.js').KittensState =>
+  'kind' in state && state.kind === 'exploding-kittens';
 export const wonGame = (state: GameState | null, playerId: string) =>
   !!state && (isDoudizhu(state) ? state.winnerIds.includes(playerId) : state.winnerId === playerId);
 export function gameView(state: GameState, playerId: string | null) {
+  if (isKittens(state)) return kittens.getView(state, playerId);
   if (isDoudizhu(state)) return doudizhu.getView(state, playerId);
   return isXiangqi(state)
     ? xiangqi.getView(state, playerId)
@@ -27,6 +32,15 @@ export function gameView(state: GameState, playerId: string | null) {
       : uno.getView(state, playerId);
 }
 export function applyGameAction(state: GameState, playerId: string, action: GameAction): GameState {
+  if (isKittens(state)) {
+    if (action.type.startsWith('ek:'))
+      return kittens.applyAction(
+        state,
+        playerId,
+        action as import('./exploding-kittens/types.js').KittensAction,
+      );
+    throw new Error('炸弹猫不支持此动作');
+  }
   if (isDoudizhu(state)) {
     if (action.type === 'bid' || action.type === 'pass' || (action.type === 'play' && 'cardIds' in action))
       return doudizhu.applyAction(state, playerId, action);

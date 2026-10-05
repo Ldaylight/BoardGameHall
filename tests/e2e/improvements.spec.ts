@@ -1,7 +1,7 @@
 import { test, expect, type Page } from '@playwright/test';
 
 async function createRoom(page: Page) {
-  await page.locator('.heading-buttons').getByRole('button', { name: '创建房间' }).click();
+  await page.locator('.nav-room-actions').getByRole('button', { name: '创建房间' }).click();
   await page.getByRole('dialog').getByRole('button', { name: '创建房间', exact: true }).click();
   await expect(page).toHaveURL(/\/room\//);
 }
@@ -102,7 +102,7 @@ test('four player table has cardinal seats, retains public cards and returns to 
     for (const page of pages.slice(1)) {
       await page.goto('/lobby');
       await expect(page.getByText('已连接 · 实时同步')).toBeVisible();
-      await page.locator('.heading-buttons').getByRole('button', { name: '房间码加入' }).click();
+      await page.locator('.nav-room-actions').getByRole('button', { name: '房间码加入' }).click();
       await page.locator('.room-code-input').fill(code);
       await page.getByRole('button', { name: '加入房间', exact: true }).click();
       await expect(page).toHaveURL(/\/room\//);

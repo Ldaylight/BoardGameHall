@@ -146,43 +146,56 @@ export async function finishMatch(room: StoredRoom) {
         winnerId,
         startedAt: new Date(room.startedAt!),
         publicResult:
-          'kind' in room.game! && room.game.kind === 'doudizhu'
+          'kind' in room.game! && room.game.kind === 'exploding-kittens'
             ? (JSON.parse(
                 JSON.stringify({
                   winnerId,
-                  winnerIds: room.game.winnerIds,
-                  winningTeam: room.game.winningTeam,
-                  landlordId: room.game.landlordId,
-                  bid: room.game.highestBid,
-                  multiplier: room.game.multiplier,
-                  spring: room.game.spring,
-                  scores: room.game.scores,
-                  moves: room.game.moves,
-                  kitty: room.game.kitty,
+                  survivors: room.game.alive,
+                  eliminated: room.game.players.filter(
+                    (p) => !room.game!.winnerId || p !== room.game!.winnerId,
+                  ),
+                  turns: room.game.turnNumber,
+                  logs: room.game.logs,
+                  events: room.game.events,
                 }),
               ) as Prisma.InputJsonValue)
-            : 'kind' in room.game! && room.game.kind === 'xiangqi'
+            : 'kind' in room.game! && room.game.kind === 'doudizhu'
               ? (JSON.parse(
                   JSON.stringify({
                     winnerId,
-                    draw: room.game.draw,
-                    reason: room.game.endReason,
-                    turns: room.game.turnNumber,
+                    winnerIds: room.game.winnerIds,
+                    winningTeam: room.game.winningTeam,
+                    landlordId: room.game.landlordId,
+                    bid: room.game.highestBid,
+                    multiplier: room.game.multiplier,
+                    spring: room.game.spring,
+                    scores: room.game.scores,
                     moves: room.game.moves,
-                    options: room.game.options,
+                    kitty: room.game.kitty,
                   }),
                 ) as Prisma.InputJsonValue)
-              : 'kind' in room.game! && room.game.kind === 'gomoku'
-                ? {
-                    winnerId,
-                    draw: room.game.draw,
-                    reason: room.game.endReason,
-                    turns: room.game.turnNumber,
-                    moves: room.game.moves.map((move) => ({ ...move })),
-                    options: { ...room.game.options },
-                    winningLine: room.game.winningLine.map((point) => ({ ...point })),
-                  }
-                : { winnerId, turns: room.game!.turnNumber },
+              : 'kind' in room.game! && room.game.kind === 'xiangqi'
+                ? (JSON.parse(
+                    JSON.stringify({
+                      winnerId,
+                      draw: room.game.draw,
+                      reason: room.game.endReason,
+                      turns: room.game.turnNumber,
+                      moves: room.game.moves,
+                      options: room.game.options,
+                    }),
+                  ) as Prisma.InputJsonValue)
+                : 'kind' in room.game! && room.game.kind === 'gomoku'
+                  ? {
+                      winnerId,
+                      draw: room.game.draw,
+                      reason: room.game.endReason,
+                      turns: room.game.turnNumber,
+                      moves: room.game.moves.map((move) => ({ ...move })),
+                      options: { ...room.game.options },
+                      winningLine: room.game.winningLine.map((point) => ({ ...point })),
+                    }
+                  : { winnerId, turns: room.game!.turnNumber },
         players: {
           create: room.players.map((p) => ({
             userId: p.isAI ? null : p.id,
@@ -308,13 +321,15 @@ export async function profile(userId: string): Promise<ProfileData> {
       .map(([id, m]) => ({
         id,
         gameName:
-          m.room.options.gameId === 'xiangqi'
-            ? '中国象棋'
-            : m.room.options.gameId === 'gomoku'
-              ? '五子棋'
-              : m.room.options.gameId === 'doudizhu'
-                ? '斗地主'
-                : 'UNO',
+          m.room.options.gameId === 'exploding-kittens'
+            ? '炸弹猫'
+            : m.room.options.gameId === 'xiangqi'
+              ? '中国象棋'
+              : m.room.options.gameId === 'gomoku'
+                ? '五子棋'
+                : m.room.options.gameId === 'doudizhu'
+                  ? '斗地主'
+                  : 'UNO',
         won: wonGame(m.room.game, userId),
         draw: !!m.room.game && 'draw' in m.room.game && m.room.game.draw,
         createdAt: m.endedAt,

@@ -16,6 +16,7 @@ import { PokerCard } from '@/components/PokerCard';
 import { Chat } from '@/components/Chat';
 import { MatchResultDialog } from '@/components/MatchResultDialog';
 import '../styles/doudizhu.css';
+import { useHandSweep } from '@/lib/useHandSweep';
 
 function Seat({
   player,
@@ -87,6 +88,12 @@ export function DoudizhuTable({
     [busy, setBusy] = useState(false),
     [now, setNow] = useState(Date.now());
   const [panel, setPanel] = useState<'chat' | 'logs' | 'rules' | null>(null);
+  const sweep = useHandSweep(
+    game?.hand.map((c) => c.id) ?? [],
+    selection,
+    setSelection,
+    busy || !connected || game?.phase === 'finished',
+  );
   const tracker = useRef(new GameAudioTracker()),
     hintIndex = useRef(0);
   useEffect(() => {
@@ -321,6 +328,7 @@ export function DoudizhuTable({
           <div className="ddz-hand-scroll">
             <div
               className="ddz-hand"
+              {...sweep}
               key={`${room.matchId}-${game.bidRound}`}
               style={{ '--hand-count': game.hand.length } as React.CSSProperties}
             >

@@ -167,7 +167,7 @@ test('gomoku hard AI waits, moves through the shared game action flow and accept
   page.on('pageerror', (e) => errors.push(e.message));
   await page.goto('/lobby');
   await expect(page.getByText('已连接 · 实时同步')).toBeVisible();
-  await page.locator('.heading-buttons').getByRole('button', { name: '创建房间' }).click();
+  await page.locator('.nav-room-actions').getByRole('button', { name: '创建房间' }).click();
   await page.getByLabel('选择游戏').selectOption('gomoku');
   await page.getByLabel('AI 难度').selectOption('hard');
   await page.getByLabel('允许申请悔棋（需对手同意）').check();

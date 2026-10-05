@@ -8,7 +8,10 @@ test('desktop catalog, search, filters, drawer and room + AI + refresh', async (
   await page.goto('/lobby');
   await expect(page.getByText('已连接 · 实时同步')).toBeVisible();
   await expect(page.locator('.game-tile')).toHaveCount(8);
-  for (const name of ['炸弹猫', '麻将', '台球']) {
+  await expect(page.locator('.lobby-heading')).toHaveCount(0);
+  await expect(page.locator('.hero')).toHaveCount(0);
+  await expect(page.locator('.topbar .nav-room-actions').getByRole('button', { name: '创建房间' })).toBeVisible();
+  for (const name of ['麻将', '台球']) {
     const tile = page.locator('.game-tile').filter({ has: page.getByRole('heading', { name, exact: true }) });
     await expect(tile.getByRole('button', { name: '敬请期待' })).toBeDisabled();
   }
@@ -36,7 +39,7 @@ test('desktop catalog, search, filters, drawer and room + AI + refresh', async (
   await page.getByRole('button', { name: '打开好友与邀请' }).click();
   await expect(page.getByRole('dialog')).toBeVisible();
   await page.getByRole('button', { name: '关闭', exact: true }).click();
-  await page.locator('.heading-buttons').getByRole('button', { name: '创建房间' }).click();
+  await page.locator('.nav-room-actions').getByRole('button', { name: '创建房间' }).click();
   await page.getByRole('dialog').getByRole('button', { name: '创建房间', exact: true }).click();
   await expect(page).toHaveURL(/\/room\//);
   await page.getByRole('button', { name: '添加 AI' }).first().click();
@@ -76,7 +79,7 @@ test('mobile navigation and creation without horizontal overflow', async ({ page
   await page.getByRole('button', { name: '关闭导航' }).click();
   await page.getByRole('button', { name: '筛选', exact: true }).click();
   await expect(page.locator('.mobile-filter-panel')).toBeVisible();
-  await page.locator('.heading-buttons').getByRole('button', { name: '房间码加入' }).click();
+  await page.locator('.nav-room-actions').getByRole('button', { name: '房间码加入' }).click();
   await expect(page.getByRole('dialog')).toBeVisible();
 });
 
@@ -95,14 +98,14 @@ test('two independent players join, ready, chat, play a card and use mobile tabl
   try {
     await a.goto('/lobby');
     await expect(a.getByText('已连接 · 实时同步')).toBeVisible();
-    await a.locator('.heading-buttons').getByRole('button', { name: '创建房间' }).click();
+    await a.locator('.nav-room-actions').getByRole('button', { name: '创建房间' }).click();
     await a.getByRole('dialog').getByLabel('座位数量').selectOption('2');
     await a.getByRole('dialog').getByRole('button', { name: '创建房间', exact: true }).click();
     await expect(a.locator('.room-code')).toBeVisible();
     const code = (await a.locator('.room-code').innerText()).replace('#', '');
     await b.goto('/lobby');
     await expect(b.getByText('已连接 · 实时同步')).toBeVisible();
-    await b.locator('.heading-buttons').getByRole('button', { name: '房间码加入' }).click();
+    await b.locator('.nav-room-actions').getByRole('button', { name: '房间码加入' }).click();
     await b.locator('.room-code-input').fill(code);
     await b.getByRole('button', { name: '加入房间', exact: true }).click();
     await expect(b).toHaveURL(/\/room\//);

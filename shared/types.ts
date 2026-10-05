@@ -73,7 +73,14 @@ export interface GameLog {
       | 'ddz-landlord'
       | 'ddz-pass'
       | 'ddz-play'
-      | 'ddz-win';
+      | 'ddz-win'
+      | 'kitten-play'
+      | 'kitten-effect'
+      | 'kitten-draw'
+      | 'kitten-defuse'
+      | 'kitten-insert'
+      | 'kitten-explode'
+      | 'kitten-win';
     playerId: string;
     value?: import('./games/uno/index.js').Value;
     count?: number;
@@ -84,6 +91,8 @@ export interface GameLog {
     to?: { x: number; y: number };
     check?: boolean;
     combo?: import('./games/doudizhu/types.js').ComboKind;
+    kittenKind?: import('./games/exploding-kittens/types.js').KittenKind;
+    canceled?: boolean;
   };
 }
 export interface RoomSummary {
@@ -100,17 +109,20 @@ export type GameView =
   | import('./games/uno/index.js').UnoView
   | import('./games/gomoku/types.js').GomokuView
   | import('./games/xiangqi/types.js').XiangqiView
-  | import('./games/doudizhu/types.js').DoudizhuView;
+  | import('./games/doudizhu/types.js').DoudizhuView
+  | import('./games/exploding-kittens/types.js').KittensView;
 export type GameState =
   | import('./games/uno/index.js').UnoState
   | import('./games/gomoku/types.js').GomokuState
   | import('./games/xiangqi/types.js').XiangqiState
-  | import('./games/doudizhu/types.js').DoudizhuState;
+  | import('./games/doudizhu/types.js').DoudizhuState
+  | import('./games/exploding-kittens/types.js').KittensState;
 export type GameAction =
   | import('./games/uno/index.js').UnoAction
   | import('./games/gomoku/types.js').GomokuAction
   | import('./games/xiangqi/types.js').XiangqiAction
-  | import('./games/doudizhu/types.js').DoudizhuAction;
+  | import('./games/doudizhu/types.js').DoudizhuAction
+  | import('./games/exploding-kittens/types.js').KittensAction;
 export interface RoomView<View extends GameView = GameView> extends RoomSummary {
   hostId: string;
   options: RoomOptions;

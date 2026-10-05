@@ -34,7 +34,7 @@ try {
   });
   await page.goto(`http://localhost:${port}/lobby`);
   await page.getByText('已连接 · 实时同步').waitFor();
-  assert.equal(await page.locator('.game-tile').count(), 5);
+  assert.equal(await page.locator('.game-tile').count(), 8);
   await page.goto(`http://localhost:${port}/profile`);
   await page.getByRole('heading', { name: '我的游乐场', exact: true }).waitFor();
   await page.goto(`http://localhost:${port}/settings`);
@@ -49,7 +49,7 @@ try {
   assert.equal(wave.subarray(8, 12).toString(), 'WAVE');
   await page.getByRole('button', { name: '试听 UNO 语音' }).click();
   await page.goto(`http://localhost:${port}/lobby`);
-  await page.locator('.heading-buttons').getByRole('button', { name: '创建房间' }).click();
+  await page.locator('.nav-room-actions').getByRole('button', { name: '创建房间' }).click();
   await page.getByLabel('选择游戏').selectOption('gomoku');
   await page.getByLabel('AI 难度').selectOption('hard');
   await page.getByRole('dialog').getByRole('button', { name: '创建房间', exact: true }).click();
@@ -66,7 +66,7 @@ try {
   await page.getByRole('button', { name: '确认认输', exact: true }).click();
   await page.getByRole('button', { name: '再来一局', exact: true }).waitFor();
   await page.goto(`http://localhost:${port}/lobby`);
-  await page.locator('.heading-buttons').getByRole('button', { name: '创建房间' }).click();
+  await page.locator('.nav-room-actions').getByRole('button', { name: '创建房间' }).click();
   await page.getByLabel('选择游戏').selectOption('xiangqi');
   await page.getByLabel('AI 难度').selectOption('hard');
   await page.getByRole('dialog').getByRole('button', { name: '创建房间', exact: true }).click();
@@ -100,7 +100,7 @@ try {
   assert.equal(laugh.status(), 200);
   assert.equal((await laugh.body()).subarray(0, 4).toString(), 'RIFF');
   await page.goto(`http://localhost:${port}/lobby`);
-  await page.locator('.heading-buttons').getByRole('button', { name: '创建房间' }).click();
+  await page.locator('.nav-room-actions').getByRole('button', { name: '创建房间' }).click();
   await page.getByLabel('选择游戏').selectOption('doudizhu');
   await page.getByLabel('AI 难度').selectOption('hard');
   await page.getByRole('dialog').getByRole('button', { name: '创建房间', exact: true }).click();
@@ -156,12 +156,76 @@ try {
     await page.waitForFunction(() =>
       /^\d+$/.test(document.querySelector('[data-testid="performance-rtt"]')?.textContent ?? ''),
     );
+    await request('room:leave', { roomId });
   } finally {
     socket.disconnect();
   }
+  await page.goto(`http://localhost:${port}/lobby`);
+  await page.locator('.nav-room-actions').getByRole('button', { name: '创建房间' }).click();
+  await page.getByLabel('选择游戏').selectOption('exploding-kittens');
+  await page.getByLabel('座位数量').selectOption('2');
+  await page.getByRole('dialog').getByRole('button', { name: '创建房间', exact: true }).click();
+  await page.getByRole('button', { name: '添加 AI', exact: true }).click();
+  await page.getByRole('button', { name: '我准备好了' }).click();
+  await page.getByRole('button', { name: '开始游戏', exact: true }).click();
+  await page.getByTestId('kittens-table').waitFor();
+  assert.equal(await page.locator('.kittens-hand-slot').count(), 8);
+  const { kittens } = await import('../dist/server/shared/games/exploding-kittens/index.js');
+  const ks = io(`http://localhost:${port}`, { auth: { token }, transports: ['websocket'] });
+  const kRequest = (event, payload) =>
+    new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error(`production kitten ${event} timeout`)), 10000);
+      ks.emit(event, payload, (result) => {
+        clearTimeout(timer);
+        result.ok ? resolve(result.data) : reject(new Error(result.error));
+      });
+    });
+  try {
+    await new Promise((resolve, reject) => {
+      ks.once('connect', resolve);
+      ks.once('connect_error', reject);
+    });
+    const roomId = page.url().split('/').at(-1);
+    for (let i = 0; i < 8; i++) {
+      const r = await kRequest('room:sync', { roomId }),
+        g = r.game;
+      if (g.phase === 'finished') break;
+      const legal = kittens.getLegalActions(g, r.hostId);
+      const allow = legal.find((a) => a.type === 'ek:allow');
+      if (g.phase === 'reaction' ? !!allow : legal.length > 0) {
+        const action = g.phase === 'reaction' ? allow : kittens.aiMove(g, r.hostId, 'medium');
+        try {
+          await kRequest('game:action', { roomId, revision: r.revision, action });
+        } catch (error) {
+          if (!(error instanceof Error) || !error.message.includes('状态已更新')) throw error;
+          i--;
+        }
+      } else {
+        const start = Date.now();
+        while (
+          Date.now() - start < 10000 &&
+          (await kRequest('room:sync', { roomId })).revision === r.revision
+        )
+          await new Promise((resolve) => setTimeout(resolve, 200));
+        assert.ok((await kRequest('room:sync', { roomId })).revision > r.revision);
+      }
+    }
+    const r = await kRequest('room:sync', { roomId });
+    assert.equal('hands' in r.game || 'deck' in r.game, false);
+    assert.ok(r.game.events.length > 0);
+    await page.reload();
+    await page.getByTestId('kittens-table').waitFor();
+    for (const file of ['card-shuffle', 'forceField_000', 'lowFrequency_explosion_000']) {
+      const sample = await page.request.get(`http://localhost:${port}/audio/kenney/${file}.ogg`);
+      assert.equal(sample.status(), 200);
+      assert.equal((await sample.body()).subarray(0, 4).toString(), 'OggS');
+    }
+  } finally {
+    ks.disconnect();
+  }
   assert.deepEqual(errors, []);
   console.log(
-    'PASS: compiled Express SPA, deep routes, Socket.IO, UNO/clown WAV and RTT monitor; Gomoku, Xiangqi and Doudizhu lazy tables/compiled hard-AI workers; cannon capture effects, reconnect, resign, endgame checkmate; zero browser errors.',
+    'PASS: compiled Express SPA, deep routes, Socket.IO, UNO/clown WAV, CC0 OGG and RTT monitor; Gomoku, Xiangqi, Doudizhu and Kittens lazy tables/AI; capture effects, reconnect, resign, endgame checkmate; zero browser errors.',
   );
 } finally {
   await browser?.close();

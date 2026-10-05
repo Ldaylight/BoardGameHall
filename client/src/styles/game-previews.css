@@ -1,3 +1,76 @@
+.nav-room-actions {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-shrink: 0;
+}
+.nav-room-actions .button {
+  font-size: 11px;
+  white-space: nowrap;
+  padding: 7px 10px;
+}
+@media (max-width: 1450px) {
+  .app-shell .topbar {
+    gap: 18px;
+  }
+  .app-shell .topbar .top-search {
+    display: none;
+  }
+}
+@media (max-width: 1250px) {
+  .app-shell .topbar .top-nav {
+    display: none;
+  }
+}
+@media (max-width: 760px) {
+  .app-shell:not(.game-shell) .topbar {
+    height: 94px;
+    padding-bottom: 26px;
+  }
+  .topbar .performance-bar {
+    position: absolute;
+    left: 12px;
+    bottom: 5px;
+  }
+  .nav-room-actions {
+    position: absolute;
+    bottom: 3px;
+    right: 12px;
+    gap: 5px;
+  }
+  .nav-room-actions .button {
+    min-height: 24px;
+    height: 24px;
+    padding: 4px 7px;
+    font-size: 10px;
+  }
+  .nav-room-actions svg {
+    width: 12px;
+    height: 12px;
+  }
+}
+@media (max-width: 360px) {
+  .topbar .coins {
+    display: none;
+  }
+  .topbar .brand-wrap {
+    width: auto;
+  }
+  .nav-room-actions svg {
+    display: none;
+  }
+}
+@media (max-width: 390px) {
+  .game-tile .tile-bottom {
+    flex-wrap: wrap;
+    justify-content: flex-start;
+  }
+  .game-tile .tile-play.button {
+    padding: 7px 9px;
+    font-size: 10px;
+    min-height: 32px;
+  }
+}
 .cover-exploding-kittens {
   background: radial-gradient(ellipse at 25% 15%, #efb89544, transparent 70%), #724d51;
 }

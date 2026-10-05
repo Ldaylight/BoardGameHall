@@ -119,7 +119,10 @@ export function MatchResultDialog({
           </Button>
           <Button variant="ghost" onClick={() => setDismissed(room.matchId)}>
             <Eye size={16} />
-            查看{room.gameId === 'uno' || room.gameId === 'doudizhu' ? '牌桌' : '棋盘'}
+            查看
+            {room.gameId === 'uno' || room.gameId === 'doudizhu' || room.gameId === 'exploding-kittens'
+              ? '牌桌'
+              : '棋盘'}
           </Button>
         </div>
       </DialogContent>

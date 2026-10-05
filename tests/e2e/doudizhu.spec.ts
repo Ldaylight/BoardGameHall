@@ -86,6 +86,30 @@ test('three-person Doudizhu: bidding, selection, pass reset, private reconnect, 
     expect(await firstCard.getAttribute('aria-pressed')).toBe('false');
     await a.screenshot({ path: '.artifacts/doudizhu-hover-highlight.png' });
     await a.mouse.move(10, 150);
+    // Holding the left button paints a range; reversing restores cards outside that range.
+    const firstStrip = await a.locator('.ddz-hand-slot').nth(0).boundingBox();
+    const fourthStrip = await a.locator('.ddz-hand-slot').nth(3).boundingBox();
+    await a.mouse.move(firstStrip!.x + 8, firstStrip!.y + 65);
+    await a.mouse.down();
+    await a.mouse.move(fourthStrip!.x + 8, firstStrip!.y + 65, { steps: 12 });
+    await expect(a.locator('.ddz-hand-slot .selected')).toHaveCount(4);
+    await a.mouse.move(firstStrip!.x + 8, firstStrip!.y + 65, { steps: 8 });
+    await expect(a.locator('.ddz-hand-slot .selected')).toHaveCount(1);
+    await a.mouse.move(fourthStrip!.x + 8, firstStrip!.y + 65, { steps: 8 });
+    await a.mouse.up();
+    await expect(a.locator('.ddz-hand-slot .selected')).toHaveCount(4);
+    // Starting on a selected card removes the range and releasing outside is safe.
+    await a.mouse.move(firstStrip!.x + 8, firstStrip!.y + 45);
+    await a.mouse.down();
+    await a.mouse.move(fourthStrip!.x + 8, firstStrip!.y + 45, { steps: 12 });
+    await expect(a.locator('.ddz-hand-slot .selected')).toHaveCount(0);
+    await a.mouse.move(fourthStrip!.x + 8, 120);
+    await a.mouse.up();
+    await firstCard.focus();
+    await a.keyboard.press('Space');
+    await expect(firstCard).toHaveAttribute('aria-pressed', 'true');
+    await a.keyboard.press('Space');
+    await expect(firstCard).toHaveAttribute('aria-pressed', 'false');
     let view = await sync();
     const ids = view.players.map((p) => p.id);
     const first = ids.indexOf(doudizhuView(view).currentPlayerId);

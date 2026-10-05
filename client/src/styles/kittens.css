@@ -1,0 +1,1207 @@
+.kittens-table {
+  height: 100dvh;
+  min-height: 560px;
+  display: grid;
+  grid-template: 58px minmax(0, 1fr) 252px / minmax(0, 1fr);
+  color: var(--text);
+  overflow: hidden;
+  background: radial-gradient(ellipse at 50% 40%, #4b334222, transparent 70%), var(--bg);
+}
+.kittens-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 0 20px;
+  background: rgb(var(--bg-rgb) / 0.85);
+  border-bottom: 1px solid var(--line);
+  z-index: 5;
+}
+.kittens-back {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  font-size: 12px;
+  color: var(--muted);
+}
+.kittens-toolbar strong {
+  font-size: 15px;
+  white-space: nowrap;
+}
+.kittens-toolbar small {
+  margin-left: 8px;
+  color: var(--muted);
+  font-weight: 400;
+  font-size: 11px;
+}
+.kittens-tools {
+  display: flex;
+  margin-left: auto;
+  gap: 3px;
+  padding-right: 190px;
+}
+.kittens-felt {
+  position: relative;
+  isolation: isolate;
+  min-height: 0;
+  overflow: hidden;
+}
+.kittens-rim {
+  position: absolute;
+  inset: 22px 10% 20px;
+  border-radius: 44% / 45%;
+  background: radial-gradient(ellipse, #4a37442b, #2d273751);
+  border: 1px solid #e6b8c72b;
+  box-shadow:
+    inset 0 0 0 7px #ffffff03,
+    inset 0 0 0 8px #ffffff08;
+  z-index: -1;
+}
+.kittens-table-wordmark {
+  position: absolute;
+  top: 70%;
+  width: 100%;
+  text-align: center;
+  font-size: 13px;
+  line-height: 1.8;
+  letter-spacing: 6px;
+  color: #edc6c422;
+  font-weight: 800;
+}
+.kittens-seat {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  width: 148px;
+  z-index: 3;
+}
+.kittens-seat-name {
+  display: flex;
+  gap: 9px;
+  align-items: center;
+  padding: 7px;
+  border-radius: 12px;
+  border: 1px solid transparent;
+  background: rgb(var(--bg-rgb) / 0.5);
+}
+.kittens-seat-name > div {
+  min-width: 0;
+}
+.kittens-seat-name b {
+  display: block;
+  font-size: 12px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
+}
+.kittens-seat-name small {
+  display: block;
+  font-size: 10px;
+  color: var(--muted);
+  margin-top: 3px;
+}
+.kittens-seat.active .kittens-seat-name {
+  border-color: #b7e2c27c;
+  box-shadow: 0 0 20px #85d6a222;
+  animation: kittens-seat-breathe 2s ease-in-out infinite;
+}
+.kittens-clock {
+  position: absolute;
+  right: -7px;
+  top: -14px;
+  border-radius: 20px;
+  background: var(--mint);
+  color: var(--bg);
+  font-size: 11px;
+  padding: 4px 8px;
+  font-weight: 800;
+}
+.kittens-opponent-hand {
+  display: flex;
+  align-items: center;
+  margin-top: 7px;
+  height: 59px;
+  padding-left: 8px;
+  position: relative;
+}
+.kittens-opponent-hand > div {
+  width: 14px;
+  flex-shrink: 0;
+  transform: rotate(calc((var(--back-i) - 2) * 3deg));
+}
+.kittens-opponent-hand strong {
+  background: #171720e6;
+  border-radius: 7px;
+  color: #f8e2cd;
+  padding: 3px 7px;
+  font-size: 15px;
+  margin-left: 28px;
+  z-index: 2;
+}
+.kittens-eliminated-mark {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+  font-size: 12px;
+  color: #ea8d7c;
+  margin: 8px 0;
+}
+.kittens-seat.eliminated .kittens-seat-name {
+  opacity: 0.6;
+}
+.kitten-playing-card {
+  width: 108px;
+  height: 151px;
+  position: relative;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  border-radius: 16px;
+  padding: 8px;
+  border: 2px solid color-mix(in srgb, var(--kitten-color) 75%, transparent);
+  color: var(--kitten-color);
+  background: linear-gradient(145deg, color-mix(in srgb, var(--kitten-color) 24%, #222232), #161626);
+  box-shadow:
+    0 6px 14px #0005,
+    inset 0 0 0 3px #ffffff04;
+  user-select: none;
+  overflow: hidden;
+  transition:
+    transform 0.18s,
+    box-shadow 0.18s;
+}
+.kitten-card-heading {
+  display: flex;
+  gap: 5px;
+  align-items: center;
+  white-space: nowrap;
+  font-size: 11px;
+}
+.kitten-card-caption {
+  font-size: 8px;
+  line-height: 1.4;
+  text-align: center;
+  margin-top: auto;
+  min-height: 23px;
+}
+.kitten-card-kind {
+  display: block;
+  text-align: center;
+  font-size: 6px;
+  letter-spacing: 2px;
+  margin-top: 2px;
+  opacity: 0.6;
+}
+.kitten-illustration {
+  position: relative;
+  color: var(--kitten-color, #efb296);
+  flex: 1;
+  min-height: 0;
+}
+.kitten-illustration > svg {
+  width: 100%;
+  height: 100%;
+}
+.kitten-prop {
+  position: absolute;
+  width: 26px !important;
+  height: 26px !important;
+  right: 0;
+  bottom: 10%;
+  filter: drop-shadow(0 2px 3px #0008);
+}
+.kitten-art-star {
+  position: absolute;
+  top: 5%;
+  right: 8%;
+  opacity: 0.7;
+  font-size: 12px;
+}
+.face-future,
+.face-rainbow {
+  background: linear-gradient(140deg, #392947, #19263c);
+}
+.kitten-back {
+  justify-content: center;
+  align-items: center;
+  background:
+    repeating-linear-gradient(45deg, #ffffff04 0 1px, transparent 1px 8px),
+    linear-gradient(135deg, #805666, #352d43);
+  border-color: #ebba9655;
+}
+.kitten-back-symbol {
+  font-size: 42px;
+  color: #efba91;
+}
+.kitten-back-text {
+  font-weight: 900;
+  letter-spacing: 2px;
+  font-size: 8px;
+  text-align: center;
+  line-height: 1.5;
+}
+.kitten-small {
+  width: 40px;
+  height: 56px;
+  padding: 3px;
+  border-radius: 7px;
+}
+.kitten-small .kitten-back-symbol {
+  font-size: 19px;
+}
+.kitten-small .kitten-back-text {
+  font-size: 3px;
+  letter-spacing: 0.5px;
+}
+.kittens-piles {
+  position: absolute;
+  left: 50%;
+  top: 53%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  gap: 50px;
+  align-items: center;
+}
+.kittens-draw-pile {
+  border: 0;
+  background: none;
+  padding: 0;
+  position: relative;
+  z-index: 2;
+}
+.kittens-draw-pile > i {
+  position: absolute;
+  inset: 0;
+  border: 2px solid #e6b39c55;
+  border-radius: 16px;
+  background: #382b3e;
+  transform: translate(-4px, 4px) rotate(-5deg);
+}
+.kittens-draw-pile > i:nth-child(2) {
+  transform: translate(3px, 2px) rotate(3deg);
+}
+.kittens-draw-pile > b {
+  position: absolute;
+  inset: auto 0 21px;
+  text-align: center;
+  color: #ffe0be;
+  font-size: 24px;
+}
+.kittens-draw-pile > span {
+  position: absolute;
+  top: calc(100% + 10px);
+  left: 0;
+  width: 100%;
+  font-size: 11px;
+  color: var(--muted);
+}
+.kittens-draw-pile.available .kitten-playing-card {
+  box-shadow: 0 0 28px #e4b19233;
+  border-color: #eac69c;
+}
+.kittens-discard {
+  width: 108px;
+  height: 151px;
+  position: relative;
+}
+.kittens-discard > div {
+  position: absolute;
+  inset: 0;
+  transform: rotate(var(--pile-rotation));
+}
+.kittens-discard > span {
+  position: absolute;
+  inset: 0;
+  border: 1px dashed #ffffff24;
+  border-radius: 16px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 15px;
+  color: #ffffff38;
+  font-size: 12px;
+}
+.kittens-reaction {
+  position: absolute;
+  left: 50%;
+  bottom: 6%;
+  transform: translateX(-50%);
+  z-index: 5;
+  width: max-content;
+  max-width: 90%;
+  padding: 10px 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  background: rgb(var(--bg-rgb) / 0.92);
+  border: 1px solid #dfb6a933;
+  border-radius: 14px;
+  box-shadow: 0 10px 25px #0004;
+}
+.kittens-reaction > b {
+  font-size: 13px;
+  color: #f0bc99;
+}
+.kittens-reaction > span,
+.kittens-reaction > small {
+  font-size: 10px;
+  color: var(--muted);
+}
+.kittens-reaction > div {
+  display: flex;
+  gap: 8px;
+}
+.kittens-hand-area {
+  --own-seat-width: 150px;
+  display: grid;
+  grid-template-columns: var(--own-seat-width) minmax(0, 1fr) var(--own-seat-width);
+  gap: 0 14px;
+  padding: 8px 20px 0;
+  background: rgb(var(--bg-rgb) / 0.83);
+  border-top: 1px solid var(--line);
+  min-width: 0;
+}
+.kittens-actions {
+  grid-column: 1/-1;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  min-height: 43px;
+}
+.kittens-actions > p {
+  font-size: 11px;
+  color: var(--muted);
+  margin: 0;
+}
+.kittens-play-controls {
+  display: flex;
+  gap: 7px;
+  align-items: center;
+}
+.kittens-play-controls label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10px;
+  color: var(--muted);
+}
+.kittens-play-controls select {
+  width: 90px;
+  height: 30px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--bg);
+  color: var(--text);
+  padding: 4px;
+  font-size: 10px;
+}
+.kittens-seat-own {
+  position: relative;
+  inset: auto;
+  transform: none;
+  width: 150px;
+  align-self: center;
+}
+.kittens-hand-scroll {
+  overflow-x: auto;
+  overflow-y: hidden;
+  min-width: 0;
+  scrollbar-width: thin;
+}
+.kittens-hand {
+  display: flex;
+  justify-content: center;
+  width: calc(var(--hand-count) * 73px + 65px);
+  min-width: 100%;
+  padding: 24px 16px 0;
+  height: 196px;
+}
+.kittens-hand-slot {
+  position: relative;
+  flex: 0 0 73px;
+  min-width: 0;
+  animation: kitten-deal 0.35s both;
+  animation-delay: calc(var(--card-i) * 0.025s);
+}
+.kittens-hand-slot:last-child {
+  flex-basis: 108px;
+}
+.kittens-hand-slot .kitten-playing-card:hover:not(:disabled) {
+  box-shadow:
+    inset 0 0 0 2px var(--kitten-color),
+    0 0 18px color-mix(in srgb, var(--kitten-color) 24%, transparent);
+}
+.kittens-hand-slot .kitten-playing-card.selected {
+  transform: translateY(-14px);
+  box-shadow:
+    0 0 0 2px var(--kitten-color),
+    0 0 24px color-mix(in srgb, var(--kitten-color) 40%, transparent);
+}
+.kittens-empty-hand {
+  align-self: center;
+  font-size: 13px;
+  color: var(--muted);
+}
+.kitten-draw-ready {
+  box-shadow: 0 0 18px #edbc8833;
+  border-color: #edbc88aa !important;
+}
+.kittens-danger,
+.kittens-debt {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #452433dd;
+  color: #ffc4ad;
+  border-radius: 12px;
+  font-size: 12px;
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.kittens-danger {
+  top: 24%;
+  z-index: 4;
+}
+.kittens-debt {
+  bottom: 7%;
+  font-size: 11px;
+  background: #281e2add;
+}
+.kittens-fx {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 8;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  animation: kitten-fx-fade 1.4s both;
+  color: #f3bb98;
+}
+.kittens-fx-art {
+  width: 150px;
+  height: 130px;
+  position: relative;
+  --kitten-color: #f3bb98;
+  filter: drop-shadow(0 0 20px currentColor);
+}
+.kittens-fx > b {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 67%;
+  text-align: center;
+  font-size: 27px;
+  letter-spacing: 4px;
+  text-shadow: 0 2px 15px #000;
+}
+.kittens-fx > i {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 6px;
+  height: 6px;
+  background: currentColor;
+  border-radius: 50%;
+  animation: kitten-particle 1.2s both;
+  transform: rotate(var(--particle-angle));
+}
+.kfx-explode {
+  color: #ff977b;
+  background: radial-gradient(circle, #ff96653a, transparent 65%);
+}
+.kfx-explode .kittens-fx-art {
+  animation: kitten-explode 0.9s both;
+}
+.kfx-defuse {
+  color: #9be3ba;
+  background: radial-gradient(circle, transparent 13%, #8ce8b82b 15%, transparent 20%);
+}
+.kfx-defuse .kittens-fx-art {
+  --kitten-color: #9be3ba;
+  animation: kitten-shield 1s both;
+}
+.kfx-attack .kittens-fx-art {
+  animation: kitten-strike 0.9s both;
+}
+.kfx-shuffle .kittens-fx-art {
+  animation: kitten-shuffle 0.9s both;
+}
+.kfx-future {
+  color: #d1b4ff;
+  background: radial-gradient(ellipse, #745da62b, transparent 60%);
+}
+.kfx-future .kittens-fx-art {
+  --kitten-color: #d1b4ff;
+  animation: kitten-future 1s both;
+}
+.kfx-skip .kittens-fx-art {
+  animation: kitten-skip 1s both;
+}
+.kfx-nope {
+  color: #f298ad;
+}
+.kfx-nope .kittens-fx-art {
+  animation: kitten-nope 0.6s both;
+}
+.kfx-favor .kittens-fx-art {
+  animation: kitten-gift 1s both;
+}
+.kfx-taco .kittens-fx-art {
+  animation: kitten-cat-hop 0.85s both;
+}
+.kfx-melon .kittens-fx-art {
+  --kitten-color: #a8e59b;
+  animation: kitten-melon 0.9s both;
+}
+.kfx-potato .kittens-fx-art {
+  --kitten-color: #d6b39b;
+  animation: kitten-potato 0.9s both;
+}
+.kfx-beard .kittens-fx-art {
+  --kitten-color: #a2bdd4;
+  animation: kitten-beard 0.9s both;
+}
+.kfx-rainbow {
+  color: #e0b6f6;
+  background: conic-gradient(from 0deg, #f7a8c611, #ffc98a11, #b7e5bf11, #9fcded11, #d4b2fb11, #f7a8c611);
+}
+.kfx-rainbow .kittens-fx-art {
+  --kitten-color: #e0b6f6;
+  animation: kitten-rainbow 1s both;
+}
+.kittens-draw-flight {
+  position: absolute;
+  left: 41%;
+  top: 48%;
+  z-index: 7;
+  pointer-events: none;
+  animation: kitten-draw-flight 0.7s both;
+  filter: drop-shadow(-14px 0 8px #edba9277);
+}
+.kittens-future-dialog {
+  max-width: 440px;
+}
+.kittens-future-cards {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin: 18px 0;
+}
+.kittens-future-cards > div {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.kittens-insert-input {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 15px 0;
+}
+.kittens-insert-input input {
+  height: 40px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px;
+  background: var(--bg);
+  color: var(--text);
+}
+.kittens-drawer {
+  max-width: 480px;
+  max-height: 85dvh;
+  overflow: auto;
+}
+.kittens-log-list p,
+.kittens-rule-copy p {
+  font-size: 12px;
+  line-height: 1.9;
+  color: var(--muted);
+}
+.kittens-rule-copy a {
+  color: var(--mint);
+  font-size: 12px;
+}
+.kittens-offline {
+  position: absolute;
+  top: 65px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 9;
+  padding: 7px 13px;
+  background: #702b41;
+  border-radius: 10px;
+  font-size: 12px;
+}
+@keyframes kittens-seat-breathe {
+  50% {
+    box-shadow: 0 0 22px #85d6a240;
+  }
+}
+@keyframes kitten-deal {
+  from {
+    opacity: 0;
+    transform: translateY(15px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes kitten-fx-fade {
+  0% {
+    opacity: 0;
+  }
+  12%,
+  65% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+@keyframes kitten-particle {
+  from {
+    transform: rotate(var(--particle-angle)) translateX(20px);
+    opacity: 1;
+  }
+  to {
+    transform: rotate(var(--particle-angle)) translateX(130px);
+    opacity: 0;
+  }
+}
+@keyframes kitten-explode {
+  0% {
+    transform: scale(0.3);
+  }
+  25% {
+    transform: scale(1.8) rotate(-8deg);
+  }
+  45% {
+    transform: scale(1.1) rotate(9deg);
+  }
+  100% {
+    transform: scale(2.5);
+    opacity: 0;
+  }
+}
+@keyframes kitten-shield {
+  from {
+    transform: scale(0.2);
+  }
+  30% {
+    transform: scale(1.3);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+@keyframes kitten-strike {
+  0% {
+    transform: translateX(-140px) rotate(-20deg);
+    opacity: 0;
+  }
+  45% {
+    transform: translateX(20px) rotate(8deg);
+    opacity: 1;
+  }
+  65% {
+    transform: translateX(-8px);
+  }
+  100% {
+    transform: none;
+  }
+}
+@keyframes kitten-shuffle {
+  0% {
+    transform: rotate(0) scale(0.5);
+  }
+  70% {
+    transform: rotate(360deg) scale(1.2);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+@keyframes kitten-future {
+  0% {
+    transform: scale(0.5);
+    filter: blur(14px);
+  }
+  60%,
+  100% {
+    transform: scale(1.1);
+    filter: blur(0);
+  }
+}
+@keyframes kitten-skip {
+  0% {
+    transform: translateX(-120px);
+  }
+  60% {
+    transform: translateX(60px);
+  }
+  100% {
+    transform: translateX(150px);
+    opacity: 0;
+  }
+}
+@keyframes kitten-nope {
+  20% {
+    transform: rotate(-12deg);
+  }
+  40% {
+    transform: rotate(12deg);
+  }
+  70% {
+    transform: rotate(-8deg);
+  }
+  100% {
+    transform: none;
+  }
+}
+@keyframes kitten-gift {
+  from {
+    transform: translateY(40px) scale(0.4);
+  }
+  50% {
+    transform: translateY(-20px) scale(1.2);
+  }
+  to {
+    transform: none;
+  }
+}
+@keyframes kitten-cat-hop {
+  0%,
+  100% {
+    transform: none;
+  }
+  30% {
+    transform: translateY(-45px) rotate(-10deg);
+  }
+  70% {
+    transform: translateY(-15px) rotate(10deg);
+  }
+}
+@keyframes kitten-melon {
+  20% {
+    transform: rotate(-16deg) scaleX(0.8);
+  }
+  60% {
+    transform: rotate(16deg) scaleX(1.1);
+  }
+}
+@keyframes kitten-potato {
+  20% {
+    transform: translateY(20px) scaleY(0.7);
+  }
+  50% {
+    transform: translateY(-35px) scaleY(1.15);
+  }
+  75% {
+    transform: translateY(10px) scaleY(0.85);
+  }
+}
+@keyframes kitten-beard {
+  25% {
+    transform: rotate(-15deg);
+  }
+  50% {
+    transform: rotate(15deg);
+  }
+  75% {
+    transform: rotate(-8deg);
+  }
+}
+@keyframes kitten-rainbow {
+  0% {
+    transform: scale(0.5) rotate(-25deg);
+  }
+  60% {
+    transform: scale(1.3) rotate(20deg);
+  }
+  100% {
+    transform: none;
+  }
+}
+@keyframes kitten-draw-flight {
+  from {
+    transform: translate(0, 0) rotate(-10deg);
+    opacity: 1;
+  }
+  to {
+    transform: translate(0, 220px) rotate(10deg) scale(0.7);
+    opacity: 0;
+  }
+}
+@media (max-width: 1000px) {
+  .kittens-tools {
+    padding-right: 150px;
+  }
+  .kittens-seat {
+    width: 124px;
+  }
+  .kittens-hand-area {
+    --own-seat-width: 120px;
+  }
+  .kittens-seat-own {
+    width: 120px;
+  }
+  .kittens-hand {
+    width: calc(var(--hand-count) * 55px + 83px);
+  }
+  .kittens-hand-slot {
+    flex-basis: 55px;
+  }
+}
+@media (max-width: 600px) {
+  .kittens-table {
+    grid-template-rows: 92px minmax(0, 1fr) 242px;
+  }
+  .kittens-toolbar {
+    flex-wrap: wrap;
+    align-content: center;
+    gap: 4px 14px;
+    padding: 8px 10px;
+    position: relative;
+  }
+  .kittens-tools {
+    padding-right: 0;
+    margin-left: 0;
+    width: 100%;
+    gap: 5px;
+  }
+  .kittens-tools .icon-button {
+    width: 29px;
+    height: 29px;
+  }
+  .kittens-toolbar strong {
+    font-size: 13px;
+  }
+  .kittens-seat {
+    width: 94px;
+  }
+  .kittens-seat-name {
+    padding: 5px;
+    gap: 5px;
+  }
+  .kittens-seat .avatar {
+    width: 26px;
+    height: 26px;
+    font-size: 12px;
+  }
+  .kittens-seat .avatar svg {
+    width: 16px;
+  }
+  .kittens-seat-name b {
+    font-size: 10px;
+  }
+  .kittens-seat-name small {
+    font-size: 8px;
+  }
+  .kittens-opponent-hand {
+    transform: scale(0.8);
+    transform-origin: top left;
+    height: 42px;
+    padding-left: 0;
+  }
+  .kittens-opponent-hand > div {
+    width: 11px;
+  }
+  .kittens-opponent-hand strong {
+    margin-left: 16px;
+    padding: 3px 5px;
+  }
+  .kittens-rim {
+    inset: 9px 5% 12px;
+  }
+  .kittens-clock {
+    right: 0;
+    top: -14px;
+    font-size: 9px;
+    padding: 2px 6px;
+  }
+  .kittens-piles {
+    gap: 27px;
+    top: 52%;
+  }
+  .kitten-playing-card {
+    width: 84px;
+    height: 118px;
+    padding: 6px;
+    border-radius: 12px;
+  }
+  .kitten-card-heading {
+    font-size: 9px;
+    gap: 3px;
+  }
+  .kitten-card-heading svg {
+    width: 12px;
+  }
+  .kitten-card-caption {
+    font-size: 6px;
+    min-height: 19px;
+  }
+  .kitten-card-kind {
+    font-size: 5px;
+  }
+  .kitten-small {
+    width: 40px;
+    height: 56px;
+  }
+  .kittens-discard {
+    width: 84px;
+    height: 118px;
+  }
+  .kittens-draw-pile > b {
+    font-size: 20px;
+  }
+  .kittens-table-wordmark {
+    font-size: 9px;
+    letter-spacing: 4px;
+    top: 78%;
+  }
+  .kittens-hand-area {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 8px 8px 0;
+    position: relative;
+    gap: 0;
+  }
+  .kittens-seat-own {
+    position: absolute;
+    left: 8px;
+    top: 6px;
+    transform: none;
+    width: 94px;
+  }
+  .kittens-actions {
+    flex-direction: column;
+    align-items: flex-end;
+    min-height: 80px;
+    gap: 4px;
+    padding-left: 98px;
+    justify-content: center;
+  }
+  .kittens-actions > p {
+    text-align: right;
+    font-size: 9px;
+    min-height: 22px;
+  }
+  .kittens-play-controls {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 4px;
+  }
+  .kittens-play-controls label {
+    font-size: 9px;
+  }
+  .kittens-play-controls select {
+    width: 65px;
+    height: 27px;
+    font-size: 9px;
+  }
+  .kittens-actions .button {
+    font-size: 10px;
+    height: 28px;
+    padding: 4px 9px;
+  }
+  .kittens-hand {
+    width: calc(var(--hand-count) * 39px + 69px);
+    height: 147px;
+    padding: 22px 12px 0;
+  }
+  .kittens-hand-slot {
+    flex-basis: 39px;
+  }
+  .kittens-hand-slot:last-child {
+    flex-basis: 84px;
+  }
+  .kittens-reaction {
+    bottom: 3%;
+    padding: 6px 12px;
+    gap: 3px;
+  }
+  .kittens-reaction > b {
+    font-size: 11px;
+  }
+  .kittens-reaction > span,
+  .kittens-reaction > small {
+    font-size: 8px;
+  }
+  .kittens-reaction .button {
+    height: 26px;
+    font-size: 10px;
+  }
+  .kittens-danger {
+    top: 27%;
+    font-size: 10px;
+    padding: 5px 8px;
+  }
+  .kittens-debt {
+    bottom: 2%;
+    font-size: 9px;
+  }
+  .kittens-fx-art {
+    width: 120px;
+    height: 110px;
+  }
+  .kittens-fx > b {
+    font-size: 21px;
+  }
+  .kittens-future-cards {
+    gap: 7px;
+  }
+  .kittens-empty-hand {
+    font-size: 11px;
+  }
+}
+@media (max-height: 600px) and (min-width: 601px) {
+  .kittens-table {
+    min-height: 0;
+    grid-template-rows: 45px minmax(0, 1fr) 146px;
+  }
+  .kittens-toolbar {
+    padding: 0 10px;
+    gap: 12px;
+  }
+  .kittens-hand-area {
+    padding: 2px 12px 0;
+  }
+  .kittens-actions {
+    min-height: 30px;
+  }
+  .kittens-actions .button {
+    height: 27px;
+    font-size: 10px;
+    padding: 3px 8px;
+  }
+  .kittens-actions > p {
+    font-size: 9px;
+  }
+  .kittens-hand {
+    height: 110px;
+    width: calc(var(--hand-count) * 36px + 62px);
+    padding: 18px 16px 0;
+  }
+  .kitten-playing-card {
+    width: 66px;
+    height: 92px;
+    padding: 5px;
+    border-radius: 10px;
+  }
+  .kitten-card-heading {
+    font-size: 8px;
+    gap: 2px;
+  }
+  .kitten-card-heading svg {
+    width: 10px;
+  }
+  .kitten-card-caption {
+    font-size: 5px;
+    min-height: 14px;
+  }
+  .kitten-prop {
+    width: 18px !important;
+    height: 18px !important;
+  }
+  .kittens-hand-slot {
+    flex-basis: 36px;
+  }
+  .kittens-hand-slot:last-child {
+    flex-basis: 66px;
+  }
+  .kitten-small {
+    width: 28px;
+    height: 39px;
+    padding: 2px;
+  }
+  .kitten-small .kitten-back-symbol {
+    font-size: 15px;
+  }
+  .kittens-piles {
+    gap: 28px;
+  }
+  .kittens-discard {
+    width: 66px;
+    height: 92px;
+  }
+  .kittens-seat {
+    width: 108px;
+  }
+  .kittens-seat-name {
+    padding: 3px;
+  }
+  .kittens-seat .avatar {
+    width: 25px;
+    height: 25px;
+  }
+  .kittens-opponent-hand {
+    height: 30px;
+  }
+  .kittens-opponent-hand > div {
+    width: 11px;
+  }
+  .kittens-opponent-hand strong {
+    font-size: 11px;
+    margin-left: 16px;
+  }
+  .kittens-table-wordmark,
+  .kittens-debt {
+    display: none;
+  }
+  .kittens-reaction {
+    left: 70%;
+    bottom: 0;
+    padding: 5px 10px;
+  }
+  .kittens-reaction > b {
+    font-size: 10px;
+  }
+  .kittens-reaction > span,
+  .kittens-reaction > small {
+    font-size: 8px;
+  }
+  .kittens-reaction .button {
+    height: 23px;
+    font-size: 9px;
+  }
+  .kittens-danger {
+    top: 34%;
+    font-size: 10px;
+    padding: 3px 6px;
+  }
+  .kittens-fx-art {
+    width: 100px;
+    height: 90px;
+  }
+  .kittens-fx > b {
+    font-size: 19px;
+  }
+}
+.kittens-still .kittens-fx,
+.kittens-still .kittens-draw-flight {
+  display: none;
+}
+.kittens-still .kittens-hand-slot,
+.kittens-still .kittens-seat.active .kittens-seat-name {
+  animation: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .kittens-fx,
+  .kittens-draw-flight {
+    display: none;
+  }
+  .kittens-hand-slot,
+  .kittens-seat.active .kittens-seat-name {
+    animation: none;
+  }
+  .kitten-playing-card {
+    transition: none;
+  }
+}

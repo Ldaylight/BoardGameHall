@@ -9,6 +9,21 @@ export interface AudioCue {
 export function eventCues(event: GameLog['event'], me?: string): AudioCue[] {
   if (!event) return [];
   switch (event.type) {
+    case 'kitten-play':
+      return [{ effect: 'ek-play' }];
+    case 'kitten-draw':
+      return [{ effect: 'ek-draw' }];
+    case 'kitten-insert':
+      return [{ effect: 'ek-insert' }];
+    case 'kitten-defuse':
+      return [{ effect: 'ek-defuse' }];
+    case 'kitten-explode':
+      return [{ effect: 'ek-explode' }];
+    case 'kitten-effect':
+      if (event.canceled) return [];
+      return event.kittenKind ? [{ effect: `ek-${event.kittenKind}` }] : [{ effect: 'ek-give' }];
+    case 'kitten-win':
+      return [{ effect: event.playerId === me ? 'win' : 'lose', delay: 1 }];
     case 'xiangqi-move':
       if (!event.piece) return [];
       return [

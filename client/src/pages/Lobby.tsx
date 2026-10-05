@@ -1,16 +1,13 @@
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   ArrowDownUp,
   ArrowRight,
   ArrowUpRight,
   Bot,
-  Check,
-  ChevronRight,
   Clock3,
-  DoorOpen,
   Flame,
   Gamepad2,
   Hash,
@@ -27,7 +24,7 @@ import { games } from '../../../shared/catalog';
 import type { Category, GameId, RoomView } from '../../../shared/types';
 import { Button } from '@/components/ui/button';
 import { GameArt } from '@/components/GameArt';
-import { CreateRoomDialog, JoinRoomDialog } from '@/components/RoomDialogs';
+import { CreateRoomDialog } from '@/components/RoomDialogs';
 import { useApp } from '@/stores/app';
 import { XiangqiModeDialog } from '@/components/XiangqiModeDialog';
 import '../xiangqi.css';
@@ -52,14 +49,12 @@ export function Lobby() {
   const [multiplayer, setMultiplayer] = useState(false);
   const [sort, setSort] = useState('recommended');
   const [create, setCreate] = useState(false);
-  const [join, setJoin] = useState(false);
   const [xiangqiMode, setXiangqiMode] = useState(false);
   const [gameId, setGameId] = useState<GameId>('uno');
   const [filterOpen, setFilterOpen] = useState(false);
   const [slot, setSlot] = useState<HTMLElement | null>(null);
   const rooms = useApp((s) => s.rooms);
   const connected = useApp((s) => s.connected);
-  const session = useApp((s) => s.session);
   useEffect(() => setSlot(document.getElementById('filter-slot')), []);
   useEffect(() => {
     if (params.get('mode') === 'ai') setAI(true);
@@ -154,63 +149,6 @@ export function Lobby() {
   return (
     <>
       {slot && createPortal(filters, slot)}
-      <div className="lobby-heading">
-        <div>
-          <div className="eyebrow greeting">
-            THE TABLE IS YOURS <span>✦</span>
-          </div>
-          <h1>
-            嗨，{session?.user.name ?? '冒险家'}
-            <span className="wave">✌</span>
-          </h1>
-          <p>放下忙碌，来一场刚刚好的快乐。</p>
-        </div>
-        <div className="heading-buttons">
-          <Button variant="outline" onClick={() => setJoin(true)}>
-            <DoorOpen size={16} />
-            房间码加入
-          </Button>
-          <Button onClick={() => start('uno')}>
-            <Plus size={18} />
-            创建房间
-          </Button>
-        </div>
-      </div>
-      <section className="hero">
-        <div className="hero-grid" />
-        <div className="hero-content">
-          <div className="hero-tag">
-            <span className="live-dot" />
-            本周主推 <i />
-            经典卡牌派对
-          </div>
-          <h2>
-            好牌局，
-            <br />从<span>这里</span>开始<span className="hero-period">.</span>
-          </h2>
-          <p>
-            朋友、好牌，还有一点出其不意。
-            <br />在 UNO 的世界里，让快乐再来一轮。
-          </p>
-          <div className="hero-buttons">
-            <Button onClick={() => start('uno')}>
-              即刻开局 <ArrowUpRight size={19} />
-            </Button>
-            <span>
-              <Users size={14} />
-              2–6 人<span className="hero-meta-dot">·</span>支持 AI 对战
-            </span>
-          </div>
-        </div>
-        <GameArt game="uno" hero />
-        <div className="hero-side-label">PLAY A LITTLE. LIVE A LOT.</div>
-        <div className="hero-pagination">
-          <i />
-          <i />
-          <i />
-        </div>
-        <span className="hero-watermark">UNO</span>
-      </section>
       <div className="discovery-heading">
         <div>
           <h2>
@@ -441,7 +379,6 @@ export function Lobby() {
         onOpenChange={setCreate}
         initialGame={gameId}
       />
-      <JoinRoomDialog open={join} onOpenChange={setJoin} />
       <XiangqiModeDialog
         open={xiangqiMode}
         onOpenChange={setXiangqiMode}

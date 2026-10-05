@@ -66,6 +66,60 @@ async function level(page: Page) {
   });
 }
 
+test('all thirteen kitten card effects emit audio, CC0 samples decode and mute cancels queued samples', async ({
+  page,
+}) => {
+  const errors: string[] = [];
+  page.on('pageerror', (e) => errors.push(e.message));
+  page.on('console', (m) => {
+    if (m.type() === 'error') errors.push(m.text());
+  });
+  await probe(page);
+  await page.goto('/settings');
+  await page.locator('.audio-status').getByRole('button', { name: '开启声音' }).click();
+  await page.getByRole('switch', { name: '背景音乐', exact: true }).click();
+  await expect.poll(() => level(page)).toBeLessThan(0.0001);
+  const fixtureUrl = `/@fs/${process.cwd().replace(/\\/g, '/')}/tests/fixtures/audio-effects.ts`;
+  await page.evaluate(async (url) => {
+    const fixture = await import(/* @vite-ignore */ url);
+    await fixture.preloadKittenEffects();
+  }, fixtureUrl);
+  for (const kind of [
+    'explode',
+    'defuse',
+    'attack',
+    'skip',
+    'shuffle',
+    'future',
+    'favor',
+    'nope',
+    'taco',
+    'melon',
+    'potato',
+    'beard',
+    'rainbow',
+  ]) {
+    await page.evaluate(
+      async ({ url, kind }) => {
+        const fixture = await import(/* @vite-ignore */ url);
+        fixture.playEffect(`ek-${kind}`, 0.08);
+      },
+      { url: fixtureUrl, kind },
+    );
+    await expect.poll(() => level(page), { intervals: [20, 30, 50], timeout: 1500 }).toBeGreaterThan(0.001);
+    await page.waitForTimeout(1300);
+  }
+  expect(await page.evaluate(() => window.audioProbe.voices)).toBeGreaterThanOrEqual(4);
+  await page.evaluate(async (url) => {
+    const fixture = await import(/* @vite-ignore */ url);
+    fixture.playEffect('ek-explode', 0.5);
+  }, fixtureUrl);
+  await page.getByRole('button', { name: '静音所有声音', exact: true }).click();
+  await page.waitForTimeout(650);
+  expect(await level(page)).toBeLessThan(0.0001);
+  expect(errors).toEqual([]);
+});
+
 test('UNO reverse, color switch and clown voice produce audio, and mute cancels scheduled sounds', async ({
   page,
 }) => {
@@ -185,7 +239,7 @@ test('game switches music, deals audibly, hovers cards, ticks each second and re
   expect(await page.evaluate(() => window.audioProbe.mediaPlays)).toBe(0);
   await page.locator('.brand').click();
   await expect(page.getByText('已连接 · 实时同步')).toBeVisible();
-  await page.locator('.heading-buttons').getByRole('button', { name: '创建房间' }).click();
+  await page.locator('.nav-room-actions').getByRole('button', { name: '创建房间' }).click();
   await page.getByRole('dialog').getByRole('button', { name: '创建房间', exact: true }).click();
   await page.getByRole('button', { name: '添加 AI' }).first().click();
   await page.getByRole('button', { name: '我准备好了' }).click();

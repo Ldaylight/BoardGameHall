@@ -20,6 +20,7 @@ import {
   isGomoku,
   isXiangqi,
   isDoudizhu,
+  isKittens,
 } from '../../../shared/games/index.js';
 import { timeout } from '../../../shared/games/gomoku/index.js';
 import { computeGomokuMove } from './gomoku-ai.js';
@@ -28,6 +29,11 @@ import { endgames } from '../../../shared/games/xiangqi/endgames.js';
 import { computeXiangqiMove } from './xiangqi-ai.js';
 import { computeDoudizhuMove } from './doudizhu-ai.js';
 import { doudizhu } from '../../../shared/games/doudizhu/index.js';
+import {
+  kittens,
+  kittensActor,
+  resolveKittensPending,
+} from '../../../shared/games/exploding-kittens/index.js';
 import {
   createRoomRecord,
   finishMatch,
@@ -122,9 +128,11 @@ export class RoomService {
     user = (await getUser(user.id)) ?? user;
     return this.store.lock(`user:${user.id}`, async () => {
       await this.noOtherSeat(user.id);
-      if (!['uno', 'gomoku', 'xiangqi', 'doudizhu'].includes(options.gameId))
+      if (!['uno', 'gomoku', 'xiangqi', 'doudizhu', 'exploding-kittens'].includes(options.gameId))
         throw new Error('该游戏尚未开放');
       if (options.gameId === 'doudizhu' && options.maxPlayers !== 3) throw new Error('斗地主必须为 3 人');
+      if (options.gameId === 'exploding-kittens' && options.maxPlayers > 5)
+        throw new Error('炸弹猫经典版最多 5 人');
       if (!Number.isInteger(options.maxPlayers) || options.maxPlayers < 2 || options.maxPlayers > 6)
         throw new Error('人数必须在 2–6 之间');
       if (options.gameId === 'gomoku' && options.maxPlayers !== 2) throw new Error('五子棋必须为 2 人');
@@ -184,7 +192,8 @@ export class RoomService {
           const p = r.players.find((p) => p.id === user.id)!;
           p.connected = true;
           p.hasLeft = false;
-          if (r.game?.players[r.game.currentIndex] === user.id) this.schedule(r);
+          if (r.game && (isKittens(r.game) || r.game.players[r.game.currentIndex] === user.id))
+            this.schedule(r);
           await this.commit(r);
           return this.view(r, user.id);
         }
@@ -218,7 +227,8 @@ export class RoomService {
       const p = r.players.find((p) => p.id === user.id);
       if (p && !p.connected) {
         p.connected = true;
-        if (r.game?.players[r.game.currentIndex] === user.id) r.nextActionAt = null;
+        if (r.game && isKittens(r.game)) this.schedule(r);
+        else if (r.game?.players[r.game.currentIndex] === user.id) r.nextActionAt = null;
         await this.commit(r);
       }
       return this.view(r, user.id);
@@ -302,11 +312,22 @@ export class RoomService {
     r.nextActionAt =
       p &&
       (p.isAI || (!p.connected && !((isGomoku(r.game) || isXiangqi(r.game)) && r.game.options.timeoutLoss)))
-        ? Date.now() + aiDelay(isGomoku(r.game) || isXiangqi(r.game) || isDoudizhu(r.game))
+        ? Date.now() +
+          aiDelay(isGomoku(r.game) || isXiangqi(r.game) || isDoudizhu(r.game) || isKittens(r.game))
         : null;
   }
   private actor(r: StoredRoom) {
     if (!r.game) return undefined;
+    if (isKittens(r.game)) {
+      const game = r.game;
+      if (game.phase === 'reaction' && game.pending) {
+        const waiting = r.players.filter(
+          (p) => game.alive.includes(p.id) && !game.pending!.allowed.includes(p.id),
+        );
+        return waiting.find((p) => p.isAI || !p.connected) ?? waiting[0];
+      }
+      return r.players.find((p) => p.id === kittensActor(game));
+    }
     if (isGomoku(r.game) && r.game.undoRequest) {
       const requester = r.game.undoRequest.playerId;
       const opponent = r.players.find((p) => p.id !== requester);
@@ -407,7 +428,7 @@ export class RoomService {
         const p = r.players.find((p) => p.id === userId && !p.hasLeft);
         if (!p) return;
         p.connected = connected;
-        if (r.game?.players[r.game.currentIndex] === userId) this.schedule(r);
+        if (r.game && (isKittens(r.game) || r.game.players[r.game.currentIndex] === userId)) this.schedule(r);
         await this.commit(r);
       });
   }
@@ -452,11 +473,25 @@ export class RoomService {
         continue;
       }
       if (snapshot.status !== 'playing' || !snapshot.game) continue;
-      const due = snapshot.nextActionAt ?? snapshot.game.turnDeadline;
+      const due =
+        isKittens(snapshot.game) && snapshot.game.phase === 'reaction'
+          ? Math.min(snapshot.nextActionAt ?? Infinity, snapshot.game.turnDeadline)
+          : (snapshot.nextActionAt ?? snapshot.game.turnDeadline);
       if (Date.now() < due) continue;
       await this.store.lock(`room:${snapshot.id}`, async () => {
         const r = await this.requireRoom(snapshot.id);
-        if (r.status !== 'playing' || !r.game || Date.now() < (r.nextActionAt ?? r.game.turnDeadline)) return;
+        if (r.status !== 'playing' || !r.game) return;
+        const currentDue =
+          isKittens(r.game) && r.game.phase === 'reaction'
+            ? Math.min(r.nextActionAt ?? Infinity, r.game.turnDeadline)
+            : (r.nextActionAt ?? r.game.turnDeadline);
+        if (Date.now() < currentDue) return;
+        if (isKittens(r.game) && r.game.phase === 'reaction' && Date.now() >= r.game.turnDeadline) {
+          r.game = resolveKittensPending(r.game);
+          this.schedule(r);
+          await this.commit(r);
+          return;
+        }
         const p = this.actor(r)!;
         if (
           (isGomoku(r.game) || isXiangqi(r.game)) &&
@@ -467,17 +502,19 @@ export class RoomService {
           r.status = 'finished';
           this.schedule(r);
         } else {
-          const action = isDoudizhu(r.game)
-            ? await computeDoudizhuMove(doudizhu.getView(r.game, p.id), p.id, p.difficulty)
-            : isXiangqi(r.game)
-              ? await computeXiangqiMove(xiangqi.getView(r.game, p.id), p.id, p.difficulty)
-              : isGomoku(r.game)
-                ? await computeGomokuMove(
-                    gameView(r.game, p.id) as import('../../../shared/games/gomoku/types.js').GomokuView,
-                    p.id,
-                    p.difficulty,
-                  )
-                : uno.aiMove(uno.getView(r.game, p.id), p.id, p.difficulty);
+          const action = isKittens(r.game)
+            ? kittens.aiMove(kittens.getView(r.game, p.id), p.id, p.difficulty)
+            : isDoudizhu(r.game)
+              ? await computeDoudizhuMove(doudizhu.getView(r.game, p.id), p.id, p.difficulty)
+              : isXiangqi(r.game)
+                ? await computeXiangqiMove(xiangqi.getView(r.game, p.id), p.id, p.difficulty)
+                : isGomoku(r.game)
+                  ? await computeGomokuMove(
+                      gameView(r.game, p.id) as import('../../../shared/games/gomoku/types.js').GomokuView,
+                      p.id,
+                      p.difficulty,
+                    )
+                  : uno.aiMove(uno.getView(r.game, p.id), p.id, p.difficulty);
           this.applyAction(r, p.id, action, r.revision);
         }
         await this.commit(r);

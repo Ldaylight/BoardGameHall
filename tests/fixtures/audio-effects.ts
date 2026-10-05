@@ -4,3 +4,6 @@ export function playEffect(effect: SoundEffect, delay = 0) {
   audioEngine.effect(effect, delay);
   return audioEngine.unlocked;
 }
+export async function preloadKittenEffects() {
+  await audioEngine.preloadKittens();
+}
